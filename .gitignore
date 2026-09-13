@@ -1,0 +1,25 @@
+# Segredos / variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Frontend (Node)
+node_modules/
+dist/
+
+# Logs / SO
+*.log
+Thumbs.db
+desktop.ini
