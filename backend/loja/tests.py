@@ -304,7 +304,7 @@ class EscritaProdutoTests(BaseCatalogoTests):
     def test_anonimo_nao_cadastra(self) -> None:
         resposta = self.client.post(reverse('produto-list'), payload_produto(self.vape), format='json')
 
-        self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(Produto.objects.exists())
 
     def test_cliente_autenticado_nao_cadastra(self) -> None:
@@ -590,7 +590,7 @@ class AjusteEstoqueTests(BaseCatalogoTests):
     def test_anonimo_nao_ajusta_estoque(self) -> None:
         resposta = self.client.post(self.url, {'delta': 100}, format='json')
 
-        self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_produto_inexistente_responde_404(self) -> None:
         self.client.force_authenticate(self.equipe)

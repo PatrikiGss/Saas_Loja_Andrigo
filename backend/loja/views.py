@@ -16,15 +16,7 @@ from loja.serializers import (
     ProdutoSerializer,
     SubtipoSerializer,
 )
-
-
-class LeituraLiberadaEscritaDaEquipe(permissions.BasePermission):
-    """Catálogo aberto para leitura; qualquer escrita exige a equipe da loja."""
-
-    def has_permission(self, request: Request, view) -> bool:
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return bool(request.user and request.user.is_staff)
+from painel.permissions import LeituraPublicaEscritaAdmin, e_admin
 
 
 class SubtipoViewSet(viewsets.ReadOnlyModelViewSet):
@@ -43,7 +35,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     catálogo inteiro e cadastra. O estoque tem endpoint próprio.
     """
 
-    permission_classes = (LeituraLiberadaEscritaDaEquipe,)
+    permission_classes = (LeituraPublicaEscritaAdmin,)
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ('nome', 'marca', 'sku')
     ordering_fields = ('nome', 'preco', 'criado_em')
@@ -51,12 +43,12 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self) -> QuerySet[Produto]:
         produtos = Produto.objects.select_related('subtipo')
-        if not self._usuario_e_da_equipe():
+        if not e_admin(self.request.user):
             produtos = produtos.filter(ativo=True)
         return self._filtrar(produtos)
 
     def get_serializer_class(self) -> type[serializers.ModelSerializer]:
-        if self._usuario_e_da_equipe():
+        if e_admin(self.request.user):
             return ProdutoGestaoSerializer
         return ProdutoSerializer
 
@@ -73,10 +65,6 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         return Response({'estoque': estoque}, status=status.HTTP_200_OK)
-
-    def _usuario_e_da_equipe(self) -> bool:
-        usuario = getattr(self.request, 'user', None)
-        return bool(usuario and usuario.is_staff)
 
     def _filtrar(self, produtos: QuerySet[Produto]) -> QuerySet[Produto]:
         """Filtra por categoria e subtipo, recusando valores desconhecidos."""

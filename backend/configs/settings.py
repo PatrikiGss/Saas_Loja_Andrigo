@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 from decouple import config,Csv
 
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'loja',
     'painel',
 ]
@@ -47,9 +49,10 @@ INSTALLED_APPS = [
 # https://www.django-rest-framework.org/api-guide/settings/
 
 REST_FRAMEWORK = {
-    # Sem Basic Auth: credenciais não trafegam em cada requisição.
+    # Só JWT: sem Basic Auth e sem sessão, então a API não depende de cookie
+    # e não há CSRF a contornar.
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     # Fechado por padrão: cada view libera o que precisa ser público.
     'DEFAULT_PERMISSION_CLASSES': [
@@ -57,6 +60,17 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # Limite dos endpoints de cadastro e login, contra força bruta.
+    'DEFAULT_THROTTLE_RATES': {'auth': '10/min'},
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # Cada renovação entrega um refresh novo e invalida o anterior.
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 }
 
 MIDDLEWARE = [
