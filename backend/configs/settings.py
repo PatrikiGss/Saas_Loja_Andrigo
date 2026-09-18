@@ -133,6 +133,28 @@ AXES_RESET_ON_SUCCESS = True
 # Origens do frontend. Lista explícita: nada de liberar geral.
 CORS_ALLOWED_ORIGINS = config('CORS_ORIGINS', default='http://localhost:5173', cast=Csv())
 
+# O refresh token viaja em cookie, e cookie só atravessa origem com isto
+# ligado. Continua valendo a lista explícita acima: `Access-Control-Allow-Origin`
+# nunca vira `*` quando há credencial.
+CORS_ALLOW_CREDENTIALS = True
+
+# Cookie do refresh token.
+#
+# `SAMESITE=Lax` é o que segura CSRF aqui: em requisição de outro site o
+# navegador não manda o cookie, então uma página hostil não consegue renovar
+# nem derrubar a sessão de ninguém. Isso vale enquanto front e API forem o
+# mesmo site (porta diferente não muda o site). Se o frontend for para outro
+# domínio, isto precisa virar `None`, e aí CSRF volta a ser problema de
+# verdade e vai pedir token próprio.
+COOKIE_DO_REFRESH = {
+    'NOME': config('REFRESH_COOKIE_NOME', default='refresh_token'),
+    # Só as rotas de autenticação recebem o cookie; o resto da API não o vê.
+    'CAMINHO': '/api/auth/',
+    'SAMESITE': config('REFRESH_COOKIE_SAMESITE', default='Lax'),
+    # Em desenvolvimento o front roda em http e um cookie `Secure` não chegaria.
+    'SEGURO': not DEBUG,
+}
+
 ROOT_URLCONF = 'configs.urls'
 
 TEMPLATES = [

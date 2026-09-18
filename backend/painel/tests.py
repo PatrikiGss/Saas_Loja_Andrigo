@@ -50,6 +50,15 @@ def autenticar(cliente: APIClient, usuario: Usuario) -> None:
     cliente.credentials(HTTP_AUTHORIZATION=f'Bearer {AccessToken.for_user(usuario)}')
 
 
+def nome_do_cookie() -> str:
+    return settings.COOKIE_DO_REFRESH['NOME']
+
+
+def por_o_refresh_no_cookie(cliente: APIClient, token: str) -> None:
+    """Simula o navegador devolvendo o cookie httpOnly do refresh."""
+    cliente.cookies[nome_do_cookie()] = token
+
+
 class BasePainelTests(APITestCase):
     """O limite de tentativas vive no cache e precisa ser zerado entre testes."""
 
@@ -213,14 +222,46 @@ class AutenticacaoTests(BasePainelTests):
         self.usuario = criar_usuario()
         self.url_login = reverse('login')
 
-    def test_login_valido_devolve_os_dois_tokens(self) -> None:
+    def test_login_valido_devolve_access_no_corpo(self) -> None:
         resposta = self.client.post(
             self.url_login, {'email': self.usuario.email, 'password': SENHA}, format='json'
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_200_OK)
         self.assertIn('access', resposta.data)
-        self.assertIn('refresh', resposta.data)
+
+    def test_login_nao_devolve_o_refresh_no_corpo(self) -> None:
+        # É o ponto do cookie httpOnly: se o refresh aparecesse na resposta, o
+        # JavaScript teria uma cópia e o cookie não protegeria nada.
+        resposta = self.client.post(
+            self.url_login, {'email': self.usuario.email, 'password': SENHA}, format='json'
+        )
+
+        self.assertNotIn('refresh', resposta.data)
+
+    def test_login_grava_o_refresh_em_cookie_httponly(self) -> None:
+        resposta = self.client.post(
+            self.url_login, {'email': self.usuario.email, 'password': SENHA}, format='json'
+        )
+
+        cookie = resposta.cookies[nome_do_cookie()]
+
+        self.assertTrue(cookie.value)
+        self.assertTrue(cookie['httponly'])
+        self.assertEqual(cookie['samesite'], settings.COOKIE_DO_REFRESH['SAMESITE'])
+        self.assertEqual(cookie['path'], '/api/auth/')
+
+    def test_cookie_do_refresh_nao_acompanha_o_resto_da_api(self) -> None:
+        # O caminho restringe o envio: o cookie não viaja em catálogo,
+        # carrinho nem pedido, então só as rotas de autenticação o veem.
+        resposta = self.client.post(
+            self.url_login, {'email': self.usuario.email, 'password': SENHA}, format='json'
+        )
+
+        caminho = resposta.cookies[nome_do_cookie()]['path']
+
+        self.assertFalse(reverse('perfil').startswith(caminho))
+        self.assertTrue(reverse('refresh').startswith(caminho))
 
     def test_login_aceita_email_em_maiusculas(self) -> None:
         resposta = self.client.post(
@@ -283,39 +324,93 @@ class AutenticacaoTests(BasePainelTests):
 
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_refresh_devolve_novo_access(self) -> None:
-        refresh = str(RefreshToken.for_user(self.usuario))
+    def test_refresh_devolve_novo_access_a_partir_do_cookie(self) -> None:
+        por_o_refresh_no_cookie(self.client, str(RefreshToken.for_user(self.usuario)))
 
-        resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+        resposta = self.client.post(reverse('refresh'), format='json')
 
         self.assertEqual(resposta.status_code, status.HTTP_200_OK)
         self.assertIn('access', resposta.data)
 
-    def test_refresh_usado_duas_vezes_e_recusado(self) -> None:
+    def test_refresh_rotacionado_volta_para_o_cookie_e_nao_para_o_corpo(self) -> None:
+        anterior = str(RefreshToken.for_user(self.usuario))
+        por_o_refresh_no_cookie(self.client, anterior)
+
+        resposta = self.client.post(reverse('refresh'), format='json')
+
+        self.assertNotIn('refresh', resposta.data)
+        self.assertNotEqual(resposta.cookies[nome_do_cookie()].value, anterior)
+
+    def test_refresh_ignora_token_mandado_no_corpo(self) -> None:
+        # Sem cookie não há sessão, mesmo que alguém tente empurrar um token
+        # válido pelo corpo: a única fonte aceita é o cookie httpOnly.
         refresh = str(RefreshToken.for_user(self.usuario))
-        self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
 
         resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
 
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_refresh_sem_cookie(self) -> None:
+        resposta = self.client.post(reverse('refresh'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_refresh_usado_duas_vezes_e_recusado(self) -> None:
+        refresh = str(RefreshToken.for_user(self.usuario))
+        por_o_refresh_no_cookie(self.client, refresh)
+        self.client.post(reverse('refresh'), format='json')
+
+        por_o_refresh_no_cookie(self.client, refresh)
+        resposta = self.client.post(reverse('refresh'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_refresh_recusado_apaga_o_cookie(self) -> None:
+        # Cookie morto continuaria sendo mandado em toda tentativa seguinte.
+        por_o_refresh_no_cookie(self.client, 'token-que-nao-presta')
+
+        resposta = self.client.post(reverse('refresh'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(resposta.cookies[nome_do_cookie()].value, '')
 
     def test_refresh_de_conta_apagada(self) -> None:
         conta = criar_usuario('apagada@example.com')
-        refresh = str(RefreshToken.for_user(conta))
+        por_o_refresh_no_cookie(self.client, str(RefreshToken.for_user(conta)))
         conta.delete()
 
-        resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+        resposta = self.client.post(reverse('refresh'), format='json')
 
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_logout_invalida_o_refresh(self) -> None:
+    def test_logout_invalida_o_refresh_e_apaga_o_cookie(self) -> None:
         refresh = str(RefreshToken.for_user(self.usuario))
+        por_o_refresh_no_cookie(self.client, refresh)
 
-        resposta = self.client.post(reverse('logout'), {'refresh': refresh}, format='json')
+        resposta = self.client.post(reverse('logout'), format='json')
 
-        self.assertEqual(resposta.status_code, status.HTTP_200_OK)
-        depois = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(resposta.cookies[nome_do_cookie()].value, '')
+
+        por_o_refresh_no_cookie(self.client, refresh)
+        depois = self.client.post(reverse('refresh'), format='json')
         self.assertEqual(depois.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_sem_cookie_nao_quebra(self) -> None:
+        # A pessoa pode clicar em sair com a sessão já vencida; o pedido é
+        # 'não estar logado', e esse já é o estado.
+        resposta = self.client.post(reverse('logout'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_logout_com_token_ja_derrubado_nao_quebra(self) -> None:
+        refresh = RefreshToken.for_user(self.usuario)
+        refresh.blacklist()
+        por_o_refresh_no_cookie(self.client, str(refresh))
+
+        resposta = self.client.post(reverse('logout'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
 
     def test_conta_desativada_perde_acesso_com_token_valido(self) -> None:
         autenticar(self.client, self.usuario)
@@ -905,7 +1000,9 @@ class AlterarSenhaTests(BasePainelTests):
 
         self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
 
-        resposta = APIClient().post(reverse('refresh'), {'refresh': refresh}, format='json')
+        outro_navegador = APIClient()
+        por_o_refresh_no_cookie(outro_navegador, refresh)
+        resposta = outro_navegador.post(reverse('refresh'), format='json')
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_troca_derruba_o_access_token_atual(self) -> None:
@@ -1055,7 +1152,8 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
             self.url_redefinicao, {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}, format='json'
         )
 
-        resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+        por_o_refresh_no_cookie(self.client, refresh)
+        resposta = self.client.post(reverse('refresh'), format='json')
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
 

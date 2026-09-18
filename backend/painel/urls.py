@@ -1,7 +1,6 @@
 """Rotas de conta, perfil e administração de usuários."""
 from django.urls import path
 from rest_framework.routers import SimpleRouter
-from rest_framework_simplejwt.views import TokenBlacklistView
 
 from painel.views import (
     AlterarSenhaView,
@@ -9,6 +8,7 @@ from painel.views import (
     CadastroView,
     EnderecoViewSet,
     LoginView,
+    LogoutView,
     PerfilView,
     RecuperarSenhaView,
     RedefinirSenhaView,
@@ -25,7 +25,7 @@ urlpatterns = [
     path('auth/ativar/', AtivarContaView.as_view(), name='ativar-conta'),
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/refresh/', RefreshView.as_view(), name='refresh'),
-    path('auth/logout/', TokenBlacklistView.as_view(), name='logout'),
+    path('auth/logout/', LogoutView.as_view(), name='logout'),
     path('auth/senha/', AlterarSenhaView.as_view(), name='alterar-senha'),
     path('auth/senha/recuperar/', RecuperarSenhaView.as_view(), name='recuperar-senha'),
     path('auth/senha/redefinir/', RedefinirSenhaView.as_view(), name='redefinir-senha'),

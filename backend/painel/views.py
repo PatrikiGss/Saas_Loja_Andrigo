@@ -6,12 +6,16 @@ from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from painel import cookies
 from painel.auditoria import registrar
 from painel.emails import enviar_ativacao_de_conta, enviar_recuperacao_de_senha
 from painel.models import Endereco, Perfil, definir_nivel, invalidar_tokens, nivel_de
@@ -70,7 +74,7 @@ class AtivarContaView(generics.GenericAPIView):
 
 
 class LoginView(TokenObtainPairView):
-    """Emite o par de tokens.
+    """Emite o access token no corpo e o refresh em cookie httpOnly.
 
     Duas barreiras contra força bruta: o limite por minuto, que é por IP, e o
     bloqueio por conta depois de algumas senhas erradas.
@@ -88,14 +92,73 @@ class LoginView(TokenObtainPairView):
             # chama. Sem isto, quem errou algumas vezes e depois acertou
             # continuaria com as falhas penduradas.
             reset(username=str(request.data.get('email', '')).strip().lower())
+            cookies.mover_do_corpo(resposta)
 
         return resposta
 
 
 class RefreshView(TokenRefreshView):
-    """Renova o access token. Conta apagada responde 401, e não erro 500."""
+    """Renova o access token a partir do cookie.
+
+    O refresh não vem do corpo e não volta no corpo: entra e sai pelo cookie
+    httpOnly, então nenhuma linha de JavaScript encosta nele. Conta apagada
+    responde 401, e não erro 500.
+    """
 
     serializer_class = RefreshSerializer
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request: Request, *args, **kwargs) -> Response:
+        entrada = self.get_serializer(data={'refresh': cookies.ler(request) or ''})
+
+        try:
+            entrada.is_valid(raise_exception=True)
+        except (TokenError, ValidationError, AuthenticationFailed):
+            return self._sessao_encerrada()
+
+        resposta = Response(dict(entrada.validated_data), status=status.HTTP_200_OK)
+        cookies.mover_do_corpo(resposta)
+        return resposta
+
+    @staticmethod
+    def _sessao_encerrada() -> Response:
+        """401 com o cookie apagado.
+
+        Sem apagar, o navegador continuaria mandando um token morto em toda
+        tentativa seguinte, e cada uma delas falharia do mesmo jeito.
+        """
+        resposta = Response(
+            {'detail': 'Sessão expirada. Entre de novo.'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+        cookies.apagar(resposta)
+        return resposta
+
+
+class LogoutView(APIView):
+    """Encerra a sessão: derruba o refresh e apaga o cookie.
+
+    Aberta de propósito. O access token pode já ter expirado quando a pessoa
+    clica em sair, e exigir autenticação aqui deixaria o cookie pendurado
+    justamente no caso em que ele mais precisa sumir.
+    """
+
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request: Request) -> Response:
+        resposta = Response(status=status.HTTP_204_NO_CONTENT)
+        cookies.apagar(resposta)
+
+        token = cookies.ler(request)
+        if token:
+            try:
+                RefreshToken(token).blacklist()
+            except TokenError:
+                # Token vencido ou já na blacklist: o estado pedido já é o
+                # estado atual, então sair continua sendo sucesso.
+                pass
+
+        return resposta
 
 
 class PerfilView(generics.RetrieveUpdateAPIView):

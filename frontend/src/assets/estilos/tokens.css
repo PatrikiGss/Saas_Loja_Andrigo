@@ -1,0 +1,83 @@
+/*
+ * Tokens da loja.
+ *
+ * A regra que segura o visual inteiro: cor tem significado. Os cinco matizes
+ * abaixo pertencem às cinco categorias do catálogo e não aparecem em mais
+ * nada. Todo o resto é tinta sobre papel. A única exceção é `--alerta`, porque
+ * erro precisa ser inconfundível e vermelho é convenção que ninguém reaprende.
+ */
+
+:root {
+  /* Papel e tinta */
+  --papel: #f4f5f2;
+  --papel-alto: #ffffff;
+  --papel-fundo: #eceee8;
+  --tinta: #191d22;
+  --tinta-media: #565f69;
+  --tinta-fraca: #868f99;
+  --linha: #dcded8;
+  --linha-forte: #c2c6bd;
+
+  /* Estado. Sucesso não ganha cor própria: seria um sexto matiz competindo
+     com as categorias. Sucesso é tinta; erro é o único desvio. */
+  --alerta: #a32118;
+  --alerta-papel: #fbeceb;
+
+  /* Categorias do catálogo. As chaves espelham `Categoria.choices` do
+     backend; o matiz é decisão nossa, de apresentação. */
+  --cat-pod-descartavel: #ff4d2e;
+  --cat-pod-recarregavel: #2f5bea;
+  --cat-vape: #7b3fe4;
+  --cat-essencia: #00a878;
+  --cat-vaporizador-ervas: #7e9b23;
+  --cat-indefinida: var(--linha-forte);
+
+  /* Tipografia: uma família só, com eixo de largura. */
+  --fonte: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --texto-2xs: 0.75rem;
+  --texto-xs: 0.8125rem;
+  --texto-sm: 0.875rem;
+  --texto-base: 1rem;
+  --texto-md: 1.125rem;
+  --texto-lg: 1.375rem;
+  --texto-xl: 1.75rem;
+  --texto-2xl: 2.25rem;
+  --texto-3xl: 3rem;
+  --texto-display: clamp(2.75rem, 9vw, 5rem);
+
+  /* Espaço, em múltiplos de 4px. */
+  --e1: 0.25rem;
+  --e2: 0.5rem;
+  --e3: 0.75rem;
+  --e4: 1rem;
+  --e5: 1.5rem;
+  --e6: 2rem;
+  --e7: 3rem;
+  --e8: 4rem;
+  --e9: 6rem;
+
+  /* Raio é hierarquia, não enfeite: bloco de cor não arredonda, superfície
+     arredonda de leve, controle arredonda o suficiente para parecer clicável. */
+  --raio-bloco: 0;
+  --raio-superficie: 2px;
+  --raio-controle: 6px;
+  --raio-pilula: 999px;
+
+  --largura-conteudo: 75rem;
+  --medianiz: var(--e5);
+
+  --transicao: 120ms ease-out;
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --medianiz: var(--e4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transicao: 0ms;
+  }
+}

@@ -19,10 +19,13 @@ staticfiles/
 node_modules/
 dist/
 
+# Contexto local para sessões do Claude
+context.md
+.claude
 # Cobertura de testes
 .coverage
 htmlcov/
-
+skills-lock.json
 # Logs / SO
 *.log
 Thumbs.db
