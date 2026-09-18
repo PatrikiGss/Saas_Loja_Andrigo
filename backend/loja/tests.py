@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -511,6 +512,18 @@ class EscritaProdutoTests(BaseCatalogoTests):
 
         self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Produto.objects.filter(pk=produto.pk).exists())
+
+    def test_produto_em_uso_responde_409(self) -> None:
+        # O carrinho ainda não existe, então a recusa do banco é simulada. É o
+        # que vai acontecer quando o item de carrinho apontar com PROTECT.
+        produto = criar_produto(self.vape)
+        self.client.force_authenticate(self.equipe)
+
+        with patch.object(Produto, 'delete', side_effect=ProtectedError('em uso', {produto})):
+            resposta = self.client.delete(reverse('produto-detail', args=[produto.id]))
+
+        self.assertEqual(resposta.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(Produto.objects.filter(pk=produto.pk).exists())
 
     def test_json_malformado_responde_400(self) -> None:
         self.client.force_authenticate(self.equipe)

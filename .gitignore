@@ -19,6 +19,10 @@ staticfiles/
 node_modules/
 dist/
 
+# Cobertura de testes
+.coverage
+htmlcov/
+
 # Logs / SO
 *.log
 Thumbs.db

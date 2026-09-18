@@ -2,21 +2,28 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
+from django.db.models import QuerySet
 from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from painel.models import Perfil, definir_nivel, nivel_de
+from painel.emails import enviar_recuperacao_de_senha
+from painel.models import Endereco, Perfil, definir_nivel, invalidar_tokens, nivel_de
 from painel.permissions import EhAdmin
 from painel.serializers import (
     AlteracaoNivelSerializer,
+    AlterarSenhaSerializer,
     CadastroSerializer,
+    EnderecoSerializer,
     LoginSerializer,
     PerfilSerializer,
+    RecuperarSenhaSerializer,
+    RedefinirSenhaSerializer,
+    RefreshSerializer,
     UsuarioAdminSerializer,
 )
 
@@ -40,6 +47,12 @@ class LoginView(TokenObtainPairView):
     throttle_scope = 'auth'
 
 
+class RefreshView(TokenRefreshView):
+    """Renova o access token. Conta apagada responde 401, e não erro 500."""
+
+    serializer_class = RefreshSerializer
+
+
 class PerfilView(generics.RetrieveUpdateAPIView):
     """Perfil da conta autenticada.
 
@@ -52,6 +65,90 @@ class PerfilView(generics.RetrieveUpdateAPIView):
 
     def get_object(self) -> Perfil:
         return self.request.user.perfil
+
+
+class AlterarSenhaView(generics.GenericAPIView):
+    """Troca de senha da própria conta.
+
+    Depois da troca, os refresh tokens em circulação são invalidados: quem
+    tiver roubado um deixa de conseguir renovar o acesso.
+    """
+
+    serializer_class = AlterarSenhaSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        entrada = self.get_serializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        usuario = request.user
+        usuario.set_password(entrada.validated_data['nova_senha'])
+        usuario.save(update_fields=('password',))
+        invalidar_tokens(usuario)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RecuperarSenhaView(generics.GenericAPIView):
+    """Pede o link de recuperação.
+
+    A resposta é 204 exista ou não a conta, então este endpoint não serve
+    para descobrir quem tem cadastro.
+    """
+
+    serializer_class = RecuperarSenhaSerializer
+    permission_classes = (permissions.AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'auth'
+
+    def post(self, request: Request) -> Response:
+        entrada = self.get_serializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        usuario = Usuario.objects.filter(
+            email__iexact=entrada.validated_data['email'], is_active=True
+        ).first()
+        if usuario is not None:
+            enviar_recuperacao_de_senha(usuario)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RedefinirSenhaView(generics.GenericAPIView):
+    """Define a nova senha a partir do link recebido por e-mail."""
+
+    serializer_class = RedefinirSenhaSerializer
+    permission_classes = (permissions.AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'auth'
+
+    def post(self, request: Request) -> Response:
+        entrada = self.get_serializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        usuario = entrada.validated_data['usuario']
+        usuario.set_password(entrada.validated_data['nova_senha'])
+        usuario.save(update_fields=('password',))
+        invalidar_tokens(usuario)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EnderecoViewSet(viewsets.ModelViewSet):
+    """Endereços do cliente.
+
+    A consulta nasce restrita à conta autenticada, então o endereço de outra
+    pessoa não existe aqui: a resposta é 404.
+    """
+
+    serializer_class = EnderecoSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self) -> QuerySet[Endereco]:
+        return Endereco.objects.filter(usuario=self.request.user)
+
+    def perform_create(self, serializer: EnderecoSerializer) -> None:
+        serializer.save(usuario=self.request.user)
 
 
 class UsuarioViewSet(

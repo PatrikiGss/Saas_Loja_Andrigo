@@ -5,14 +5,19 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
 from django.core.cache import cache
+from django.test import override_settings
 from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from loja.models import Categoria, Produto, Subtipo
-from painel.models import Nivel, Perfil
+from painel.models import Endereco, Nivel, Perfil
 
 Usuario = get_user_model()
 
@@ -263,6 +268,15 @@ class AutenticacaoTests(BasePainelTests):
     def test_refresh_usado_duas_vezes_e_recusado(self) -> None:
         refresh = str(RefreshToken.for_user(self.usuario))
         self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+
+        resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_refresh_de_conta_apagada(self) -> None:
+        conta = criar_usuario('apagada@example.com')
+        refresh = str(RefreshToken.for_user(conta))
+        conta.delete()
 
         resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
 
@@ -678,6 +692,335 @@ class AdministracaoDeContasTests(BasePainelTests):
         resposta = self.client.get(reverse('usuario-list'))
 
         self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class EnderecoTests(BasePainelTests):
+    """Endereços do cliente."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.usuario = criar_usuario()
+        self.outro = criar_usuario('outro@example.com')
+        autenticar(self.client, self.usuario)
+
+    def payload(self, **campos) -> dict:
+        dados = {
+            'apelido': 'casa',
+            'cep': '01001000',
+            'logradouro': 'Praça da Sé',
+            'numero': '100',
+            'bairro': 'Sé',
+            'cidade': 'São Paulo',
+            'uf': 'SP',
+        }
+        dados.update(campos)
+        return dados
+
+    def criar_para(self, usuario: Usuario, **campos) -> Endereco:
+        return Endereco.objects.create(usuario=usuario, **self.payload(**campos))
+
+    def test_cliente_cadastra_endereco(self) -> None:
+        resposta = self.client.post(reverse('endereco-list'), self.payload(), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Endereco.objects.get().usuario, self.usuario)
+
+    def test_dono_vem_do_token_e_nao_do_payload(self) -> None:
+        self.client.post(
+            reverse('endereco-list'), self.payload(usuario=self.outro.pk), format='json'
+        )
+
+        self.assertEqual(Endereco.objects.get().usuario, self.usuario)
+
+    def test_cliente_pode_ter_varios_enderecos(self) -> None:
+        self.client.post(reverse('endereco-list'), self.payload(apelido='casa'), format='json')
+        self.client.post(reverse('endereco-list'), self.payload(apelido='trabalho'), format='json')
+
+        resposta = self.client.get(reverse('endereco-list'))
+
+        self.assertEqual(resposta.data['count'], 2)
+
+    def test_lista_traz_apenas_os_proprios(self) -> None:
+        self.criar_para(self.usuario)
+        self.criar_para(self.outro, cidade='Santos')
+
+        resposta = self.client.get(reverse('endereco-list'))
+
+        self.assertEqual(resposta.data['count'], 1)
+        self.assertEqual(resposta.data['results'][0]['cidade'], 'São Paulo')
+
+    def test_cliente_altera_o_proprio_endereco(self) -> None:
+        endereco = self.criar_para(self.usuario)
+
+        resposta = self.client.patch(
+            reverse('endereco-detail', args=[endereco.pk]), {'numero': '250'}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_200_OK)
+        endereco.refresh_from_db()
+        self.assertEqual(endereco.numero, '250')
+
+    def test_cliente_exclui_o_proprio_endereco(self) -> None:
+        endereco = self.criar_para(self.usuario)
+
+        resposta = self.client.delete(reverse('endereco-detail', args=[endereco.pk]))
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Endereco.objects.filter(pk=endereco.pk).exists())
+
+    def test_cep_invalido(self) -> None:
+        resposta = self.client.post(reverse('endereco-list'), self.payload(cep='01001-000'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cep', resposta.data)
+
+    def test_uf_invalida(self) -> None:
+        resposta = self.client.post(reverse('endereco-list'), self.payload(uf='XX'), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('uf', resposta.data)
+
+    def test_campos_obrigatorios(self) -> None:
+        resposta = self.client.post(reverse('endereco-list'), {}, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        for campo in ('cep', 'logradouro', 'numero', 'bairro', 'cidade', 'uf'):
+            self.assertIn(campo, resposta.data)
+
+    def test_nao_le_endereco_de_outra_conta(self) -> None:
+        endereco = self.criar_para(self.outro)
+
+        resposta = self.client.get(reverse('endereco-detail', args=[endereco.pk]))
+
+        self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_nao_altera_endereco_de_outra_conta(self) -> None:
+        endereco = self.criar_para(self.outro)
+
+        resposta = self.client.patch(
+            reverse('endereco-detail', args=[endereco.pk]), {'numero': '999'}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
+        endereco.refresh_from_db()
+        self.assertEqual(endereco.numero, '100')
+
+    def test_nao_exclui_endereco_de_outra_conta(self) -> None:
+        endereco = self.criar_para(self.outro)
+
+        resposta = self.client.delete(reverse('endereco-detail', args=[endereco.pk]))
+
+        self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Endereco.objects.filter(pk=endereco.pk).exists())
+
+    def test_sem_autenticacao(self) -> None:
+        self.client.credentials()
+
+        resposta = self.client.get(reverse('endereco-list'))
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AlterarSenhaTests(BasePainelTests):
+    """Troca de senha pela própria conta."""
+
+    NOVA_SENHA = 'Outra-Senha-Forte-2026'
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.usuario = criar_usuario()
+        self.outro = criar_usuario('outro@example.com')
+        autenticar(self.client, self.usuario)
+        self.url = reverse('alterar-senha')
+
+    def test_troca_valida(self) -> None:
+        resposta = self.client.post(
+            self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password(self.NOVA_SENHA))
+
+    def test_login_passa_a_usar_a_nova_senha(self) -> None:
+        self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
+
+        anonimo = APIClient()
+        antiga = anonimo.post(
+            reverse('login'), {'email': self.usuario.email, 'password': SENHA}, format='json'
+        )
+        nova = anonimo.post(
+            reverse('login'), {'email': self.usuario.email, 'password': self.NOVA_SENHA}, format='json'
+        )
+
+        self.assertEqual(antiga.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(nova.status_code, status.HTTP_200_OK)
+
+    def test_senha_atual_incorreta(self) -> None:
+        resposta = self.client.post(
+            self.url, {'senha_atual': 'errada', 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('senha_atual', resposta.data)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password(SENHA))
+
+    def test_nova_senha_fraca(self) -> None:
+        resposta = self.client.post(
+            self.url, {'senha_atual': SENHA, 'nova_senha': '123'}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('nova_senha', resposta.data)
+
+    def test_troca_derruba_os_refresh_antigos(self) -> None:
+        refresh = str(RefreshToken.for_user(self.usuario))
+
+        self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
+
+        resposta = APIClient().post(reverse('refresh'), {'refresh': refresh}, format='json')
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_nao_mexe_na_senha_de_outra_conta(self) -> None:
+        self.client.post(
+            self.url,
+            {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA, 'usuario': self.outro.pk, 'id': self.outro.pk},
+            format='json',
+        )
+
+        self.outro.refresh_from_db()
+        self.assertTrue(self.outro.check_password(SENHA))
+
+    def test_sem_autenticacao(self) -> None:
+        self.client.credentials()
+
+        resposta = self.client.post(
+            self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class RecuperacaoDeSenhaTests(BasePainelTests):
+    """Esqueci a senha: pedido, e-mail e redefinição."""
+
+    NOVA_SENHA = 'Outra-Senha-Forte-2026'
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.usuario = criar_usuario()
+        self.url_pedido = reverse('recuperar-senha')
+        self.url_redefinicao = reverse('redefinir-senha')
+
+    def credenciais(self, usuario: Usuario | None = None) -> dict:
+        conta = usuario or self.usuario
+        return {
+            'uid': urlsafe_base64_encode(force_bytes(conta.pk)),
+            'token': default_token_generator.make_token(conta),
+        }
+
+    def test_pedido_envia_o_email(self) -> None:
+        resposta = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('redefinir-senha', mail.outbox[0].body)
+
+    def test_email_inexistente_responde_igual(self) -> None:
+        existente = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
+        mail.outbox.clear()
+
+        inexistente = self.client.post(self.url_pedido, {'email': 'ninguem@example.com'}, format='json')
+
+        self.assertEqual(inexistente.status_code, existente.status_code)
+        self.assertEqual(inexistente.data, existente.data)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_conta_desativada_nao_recebe_email(self) -> None:
+        self.usuario.is_active = False
+        self.usuario.save(update_fields=('is_active',))
+
+        resposta = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_email_invalido(self) -> None:
+        resposta = self.client.post(self.url_pedido, {'email': 'nao-e-email'}, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_redefinicao_valida(self) -> None:
+        resposta = self.client.post(
+            self.url_redefinicao, {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password(self.NOVA_SENHA))
+
+    def test_token_invalido(self) -> None:
+        dados = {**self.credenciais(), 'token': 'abc-invalido', 'nova_senha': self.NOVA_SENHA}
+
+        resposta = self.client.post(self.url_redefinicao, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.usuario.refresh_from_db()
+        self.assertTrue(self.usuario.check_password(SENHA))
+
+    def test_uid_invalido(self) -> None:
+        dados = {**self.credenciais(), 'uid': 'nao-existe', 'nova_senha': self.NOVA_SENHA}
+
+        resposta = self.client.post(self.url_redefinicao, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_token_de_outra_conta(self) -> None:
+        outro = criar_usuario('outro@example.com')
+        dados = {
+            'uid': urlsafe_base64_encode(force_bytes(self.usuario.pk)),
+            'token': default_token_generator.make_token(outro),
+            'nova_senha': self.NOVA_SENHA,
+        }
+
+        resposta = self.client.post(self.url_redefinicao, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_token_nao_serve_duas_vezes(self) -> None:
+        dados = {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}
+        self.client.post(self.url_redefinicao, dados, format='json')
+
+        resposta = self.client.post(self.url_redefinicao, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(PASSWORD_RESET_TIMEOUT=-1)
+    def test_token_expirado(self) -> None:
+        dados = {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}
+
+        resposta = self.client.post(self.url_redefinicao, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_nova_senha_fraca(self) -> None:
+        resposta = self.client.post(
+            self.url_redefinicao, {**self.credenciais(), 'nova_senha': '123'}, format='json'
+        )
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('nova_senha', resposta.data)
+
+    def test_redefinicao_derruba_os_refresh_antigos(self) -> None:
+        refresh = str(RefreshToken.for_user(self.usuario))
+
+        self.client.post(
+            self.url_redefinicao, {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
+
+        resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class IntegracaoComLojaTests(BasePainelTests):

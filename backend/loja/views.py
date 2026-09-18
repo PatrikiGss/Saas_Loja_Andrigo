@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
-from django.db.models import QuerySet
+from django.db.models import ProtectedError, QuerySet
 from rest_framework import filters, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -17,6 +17,14 @@ from loja.serializers import (
     SubtipoSerializer,
 )
 from painel.permissions import LeituraPublicaEscritaAdmin, e_admin
+
+
+class ProdutoEmUso(APIException):
+    """Produto referenciado por outro registro, como um item de carrinho."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = 'Produto em uso por outros registros. Desative em vez de excluir.'
+    default_code = 'produto_em_uso'
 
 
 class SubtipoViewSet(viewsets.ReadOnlyModelViewSet):
@@ -51,6 +59,18 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         if e_admin(self.request.user):
             return ProdutoGestaoSerializer
         return ProdutoSerializer
+
+    def perform_destroy(self, instance: Produto) -> None:
+        """Só apaga produto sem histórico.
+
+        Quem depende do produto aponta para ele com `PROTECT`, então o banco
+        recusa a exclusão e a resposta vira 409. Tirar do catálogo é
+        `ativo=False`, que preserva o registro.
+        """
+        try:
+            instance.delete()
+        except ProtectedError as erro:
+            raise ProdutoEmUso() from erro
 
     @action(detail=True, methods=('post',), url_path='estoque', url_name='estoque')
     def ajustar_estoque(self, request: Request, pk: str | None = None) -> Response:

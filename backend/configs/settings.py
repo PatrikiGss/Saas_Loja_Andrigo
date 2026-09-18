@@ -43,7 +43,12 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'loja',
     'painel',
+    'carrinho',
+    'pedidos',
 ]
+
+# Endereço do frontend, usado nos links enviados por e-mail.
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
 # Django REST Framework
 # https://www.django-rest-framework.org/api-guide/settings/
@@ -60,8 +65,9 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    # Limite dos endpoints de cadastro e login, contra força bruta.
-    'DEFAULT_THROTTLE_RATES': {'auth': '10/min'},
+    # Limite dos endpoints de cadastro e login, contra força bruta, e das
+    # consultas que batem em provedor externo.
+    'DEFAULT_THROTTLE_RATES': {'auth': '10/min', 'consulta': '30/min'},
 }
 
 SIMPLE_JWT = {
@@ -154,8 +160,24 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# Em desenvolvimento o e-mail sai no console e nada trafega. Em produção,
+# aponte EMAIL_BACKEND para o SMTP e ponha as credenciais no ambiente: senha
+# de SMTP nunca entra neste arquivo.
+EMAIL_BACKEND_PATH = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+USA_SMTP = EMAIL_BACKEND_PATH.endswith('smtp.EmailBackend')
+
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': EMAIL_BACKEND_PATH,
+        'OPTIONS': {
+            'host': config('EMAIL_HOST', default=''),
+            'port': config('EMAIL_PORT', default=587, cast=int),
+            'username': config('EMAIL_USUARIO', default=''),
+            'password': config('EMAIL_SENHA', default=''),
+            'use_tls': config('EMAIL_USA_TLS', default=True, cast=bool),
+            'timeout': config('EMAIL_TIMEOUT', default=10, cast=int),
+        } if USA_SMTP else {},
     },
 }
+
+DEFAULT_FROM_EMAIL = config('EMAIL_REMETENTE', default='nao-responda@localhost')

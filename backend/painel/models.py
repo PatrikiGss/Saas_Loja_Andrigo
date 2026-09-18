@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser
 from django.core.validators import RegexValidator
 from django.db import models
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 
 class Nivel(models.TextChoices):
@@ -34,6 +35,16 @@ def definir_nivel(usuario: AbstractBaseUser, nivel: str) -> None:
     usuario.save(update_fields=('is_staff',))
 
 
+def invalidar_tokens(usuario: AbstractBaseUser) -> None:
+    """Derruba os refresh tokens em circulação da conta.
+
+    Usado quando a senha muda. O access token que já estava emitido continua
+    valendo até expirar, e é por isso que ele dura 15 minutos.
+    """
+    for token in OutstandingToken.objects.filter(user=usuario):
+        BlacklistedToken.objects.get_or_create(token=token)
+
+
 validar_telefone = RegexValidator(
     r'^\+?[0-9][0-9 ()-]{7,19}$',
     'Informe um telefone válido, com 8 a 20 caracteres.',
@@ -61,3 +72,84 @@ class Perfil(models.Model):
     @property
     def nivel(self) -> str:
         return nivel_de(self.usuario)
+
+
+class UF(models.TextChoices):
+    """Unidades da federação, para validar o destino da entrega."""
+
+    AC = 'AC', 'Acre'
+    AL = 'AL', 'Alagoas'
+    AM = 'AM', 'Amazonas'
+    AP = 'AP', 'Amapá'
+    BA = 'BA', 'Bahia'
+    CE = 'CE', 'Ceará'
+    DF = 'DF', 'Distrito Federal'
+    ES = 'ES', 'Espírito Santo'
+    GO = 'GO', 'Goiás'
+    MA = 'MA', 'Maranhão'
+    MG = 'MG', 'Minas Gerais'
+    MS = 'MS', 'Mato Grosso do Sul'
+    MT = 'MT', 'Mato Grosso'
+    PA = 'PA', 'Pará'
+    PB = 'PB', 'Paraíba'
+    PE = 'PE', 'Pernambuco'
+    PI = 'PI', 'Piauí'
+    PR = 'PR', 'Paraná'
+    RJ = 'RJ', 'Rio de Janeiro'
+    RN = 'RN', 'Rio Grande do Norte'
+    RO = 'RO', 'Rondônia'
+    RR = 'RR', 'Roraima'
+    RS = 'RS', 'Rio Grande do Sul'
+    SC = 'SC', 'Santa Catarina'
+    SE = 'SE', 'Sergipe'
+    SP = 'SP', 'São Paulo'
+    TO = 'TO', 'Tocantins'
+
+
+#: Campos que descrevem um destino de entrega. O pedido congela uma cópia.
+CAMPOS_DE_ENDERECO = ('cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf')
+
+validar_cep = RegexValidator(r'^\d{8}$', 'Informe o CEP com 8 dígitos, apenas números.')
+
+
+def copiar_endereco(endereco: 'Endereco') -> dict:
+    """Cópia dos campos de entrega, para congelar no pedido."""
+    return {campo: getattr(endereco, campo) for campo in CAMPOS_DE_ENDERECO}
+
+
+class CamposDeEndereco(models.Model):
+    """Endereço de entrega.
+
+    É abstrato porque os mesmos campos aparecem em dois lugares: no cadastro
+    do cliente e congelados dentro do pedido.
+    """
+
+    cep = models.CharField(max_length=8, validators=(validar_cep,))
+    logradouro = models.CharField(max_length=120)
+    numero = models.CharField(max_length=10)
+    complemento = models.CharField(max_length=60, blank=True)
+    bairro = models.CharField(max_length=60)
+    cidade = models.CharField(max_length=60)
+    uf = models.CharField(max_length=2, choices=UF.choices)
+
+    class Meta:
+        abstract = True
+
+
+class Endereco(CamposDeEndereco):
+    """Endereço cadastrado por um cliente. Ele pode ter vários."""
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='enderecos',
+    )
+    apelido = models.CharField(max_length=30, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-criado_em',)
+
+    def __str__(self) -> str:
+        return f'{self.logradouro}, {self.numero} - {self.cidade}/{self.uf}'

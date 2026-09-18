@@ -1,0 +1,140 @@
+"""Endpoints de checkout, pedidos, frete e CEP."""
+from __future__ import annotations
+
+from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
+from django.db import transaction
+from django.db.models import QuerySet
+from rest_framework import generics, permissions, serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+
+from carrinho.models import Carrinho
+from painel.permissions import EhAdmin, e_admin
+from pedidos import cep as consulta_de_cep
+from pedidos.emails import enviar_confirmacao_de_pedido
+from pedidos.frete import cotar
+from pedidos.models import Pedido
+from pedidos.serializers import (
+    AlteracaoStatusSerializer,
+    CheckoutSerializer,
+    CotacaoFreteSerializer,
+    EnderecoConsultadoSerializer,
+    OpcaoFreteSerializer,
+    PedidoSerializer,
+)
+
+
+class ProvedorIndisponivel(APIException):
+    """Serviço externo fora do ar. O cliente não vê nada além disso."""
+
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = 'Consulta indisponível no momento. Tente de novo em instantes.'
+    default_code = 'provedor_indisponivel'
+
+
+class CheckoutView(generics.GenericAPIView):
+    """Fecha o carrinho e devolve o pedido."""
+
+    serializer_class = CheckoutSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        entrada = self.get_serializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        try:
+            pedido = Pedido.objects.fechar_carrinho(
+                usuario=request.user,
+                endereco=entrada.validated_data['endereco'],
+                servico=entrada.validated_data['servico'],
+            )
+        except ErroDeValidacaoDoModelo as erro:
+            raise ValidationError(serializers.as_serializer_error(erro)) from erro
+
+        # O e-mail sai só depois do commit: SMTP fora do ar não desfaz a compra.
+        transaction.on_commit(lambda: enviar_confirmacao_de_pedido(pedido))
+
+        return Response(PedidoSerializer(pedido).data, status=status.HTTP_201_CREATED)
+
+
+class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
+    """Pedidos.
+
+    O cliente enxerga os seus; admin enxerga todos, que é a política
+    administrativa que o projeto já usa no catálogo.
+    """
+
+    serializer_class = PedidoSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    lookup_field = 'numero'
+
+    def get_queryset(self) -> QuerySet[Pedido]:
+        pedidos = Pedido.objects.select_related('entrega').prefetch_related('itens')
+        if e_admin(self.request.user):
+            return pedidos
+        return pedidos.filter(usuario=self.request.user)
+
+    @action(
+        detail=True,
+        methods=('post',),
+        url_path='status',
+        url_name='status',
+        permission_classes=(EhAdmin,),
+    )
+    def alterar_status(self, request: Request, numero: str | None = None) -> Response:
+        """Move o pedido no fluxo. Só admin, e só transição prevista."""
+        pedido = self.get_object()
+        entrada = AlteracaoStatusSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        try:
+            pedido.alterar_status(entrada.validated_data['status'])
+        except ErroDeValidacaoDoModelo as erro:
+            raise ValidationError(serializers.as_serializer_error(erro)) from erro
+
+        return Response(PedidoSerializer(pedido).data)
+
+
+class CotacaoFreteView(generics.GenericAPIView):
+    """Opções de frete para o carrinho da conta e um endereço dela."""
+
+    serializer_class = CotacaoFreteSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request: Request) -> Response:
+        entrada = self.get_serializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        carrinho = Carrinho.objects.do_usuario(request.user)
+        quantidade = sum(carrinho.itens.values_list('quantidade', flat=True))
+        if not quantidade:
+            raise ValidationError({'carrinho': 'Carrinho vazio.'})
+
+        try:
+            opcoes = cotar(entrada.validated_data['endereco'].uf, quantidade)
+        except ErroDeValidacaoDoModelo as erro:
+            raise ValidationError(serializers.as_serializer_error(erro)) from erro
+
+        return Response(OpcaoFreteSerializer(opcoes, many=True).data)
+
+
+class ConsultaCepView(generics.GenericAPIView):
+    """Consulta de CEP feita pelo backend, com limite por minuto."""
+
+    serializer_class = EnderecoConsultadoSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'consulta'
+
+    def get(self, request: Request, cep: str) -> Response:
+        try:
+            endereco = consulta_de_cep.consultar(cep)
+        except consulta_de_cep.CepInvalido as erro:
+            raise ValidationError({'cep': 'CEP não encontrado.'}) from erro
+        except consulta_de_cep.ConsultaIndisponivel as erro:
+            raise ProvedorIndisponivel from erro
+
+        return Response(self.get_serializer(endereco).data)

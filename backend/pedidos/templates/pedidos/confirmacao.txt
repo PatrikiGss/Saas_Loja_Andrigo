@@ -1,0 +1,20 @@
+Olá, {{ pedido.usuario.first_name|default:pedido.usuario.email }}.
+
+Recebemos o seu pedido {{ pedido.numero }}.
+
+ITENS
+{% for item in pedido.itens.all %}{{ item.quantidade }} x {{ item.nome }} ({{ item.sku }}) - R$ {{ item.subtotal }}
+{% endfor %}
+Subtotal: R$ {{ pedido.subtotal }}
+Frete ({{ pedido.get_servico_frete_display }}, até {{ pedido.prazo_frete_em_dias }} dias): R$ {{ pedido.frete }}
+Total: R$ {{ pedido.total }}
+
+ENTREGA
+{{ pedido.entrega.logradouro }}, {{ pedido.entrega.numero }}{% if pedido.entrega.complemento %} - {{ pedido.entrega.complemento }}{% endif %}
+{{ pedido.entrega.bairro }} - {{ pedido.entrega.cidade }}/{{ pedido.entrega.uf }}
+CEP {{ pedido.entrega.cep }}
+
+STATUS
+{{ pedido.get_status_display }}
+
+Você recebe um novo aviso quando o pedido avançar.

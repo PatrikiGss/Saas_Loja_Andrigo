@@ -3,14 +3,26 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db.models import Q
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 
-from painel.models import Nivel, Perfil, nivel_de
+from painel.models import Endereco, Nivel, Perfil, nivel_de
 
 Usuario = get_user_model()
+
+
+def problemas_da_senha(senha: str, usuario: Usuario) -> list[str]:
+    """Roda os validadores de senha do Django e devolve o que ele reclamou."""
+    try:
+        validate_password(senha, usuario)
+    except ErroDeValidacaoDoModelo as erro:
+        return list(erro.messages)
+    return []
 
 
 class CadastroSerializer(serializers.Serializer):
@@ -43,10 +55,8 @@ class CadastroSerializer(serializers.Serializer):
             email=attrs['email'],
             first_name=attrs.get('nome', ''),
         )
-        try:
-            validate_password(attrs['password'], conta)
-        except ErroDeValidacaoDoModelo as erro:
-            raise serializers.ValidationError({'password': list(erro.messages)}) from erro
+        if problemas := problemas_da_senha(attrs['password'], conta):
+            raise serializers.ValidationError({'password': problemas})
         return attrs
 
     def create(self, validated_data: dict) -> Usuario:
@@ -84,6 +94,20 @@ class LoginSerializer(TokenObtainPairSerializer):
     def validate(self, attrs: dict) -> dict:
         attrs[self.username_field] = attrs.pop('email').strip().lower()
         return super().validate(attrs)
+
+
+class RefreshSerializer(TokenRefreshSerializer):
+    """Renovação do access token, tratando conta inexistente como 401.
+
+    O serializer do simplejwt busca a conta do token com `get()` e deixa o
+    `DoesNotExist` subir. Com uma conta apagada, isso virava erro 500.
+    """
+
+    def validate(self, attrs: dict) -> dict:
+        try:
+            return super().validate(attrs)
+        except Usuario.DoesNotExist as erro:
+            raise AuthenticationFailed('Token inválido para esta conta.', 'no_active_account') from erro
 
 
 class PerfilSerializer(serializers.ModelSerializer):
@@ -138,3 +162,80 @@ class AlteracaoNivelSerializer(serializers.Serializer):
     """Entrada da troca de nível, aceita somente de contas admin."""
 
     nivel = serializers.ChoiceField(choices=Nivel.choices)
+
+
+class EnderecoSerializer(serializers.ModelSerializer):
+    """Endereço do cliente. O dono nunca vem do payload: vem do token."""
+
+    class Meta:
+        model = Endereco
+        fields = (
+            'id',
+            'apelido',
+            'cep',
+            'logradouro',
+            'numero',
+            'complemento',
+            'bairro',
+            'cidade',
+            'uf',
+        )
+        read_only_fields = ('id',)
+
+
+class AlterarSenhaSerializer(serializers.Serializer):
+    """Troca de senha pela própria conta, com confirmação da senha atual."""
+
+    senha_atual = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
+    nova_senha = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
+
+    def validate_senha_atual(self, valor: str) -> str:
+        if not self.context['request'].user.check_password(valor):
+            raise serializers.ValidationError('Senha atual incorreta.')
+        return valor
+
+    def validate_nova_senha(self, valor: str) -> str:
+        if problemas := problemas_da_senha(valor, self.context['request'].user):
+            raise serializers.ValidationError(problemas)
+        return valor
+
+
+class RecuperarSenhaSerializer(serializers.Serializer):
+    """Pedido de recuperação. Só o e-mail, e a resposta é sempre a mesma."""
+
+    email = serializers.EmailField()
+
+
+class RedefinirSenhaSerializer(serializers.Serializer):
+    """Redefinição com o token do Django, que expira e vale uma vez.
+
+    O token é derivado do hash da senha atual: quando a senha muda, ele deixa
+    de valer sozinho, sem precisar de tabela de tokens usados.
+    """
+
+    uid = serializers.CharField(max_length=40)
+    token = serializers.CharField(max_length=64)
+    nova_senha = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
+
+    def validate(self, attrs: dict) -> dict:
+        usuario = self._conta_do_token(attrs['uid'], attrs['token'])
+        if usuario is None:
+            raise serializers.ValidationError({'token': 'Link inválido ou expirado.'})
+
+        if problemas := problemas_da_senha(attrs['nova_senha'], usuario):
+            raise serializers.ValidationError({'nova_senha': problemas})
+
+        attrs['usuario'] = usuario
+        return attrs
+
+    @staticmethod
+    def _conta_do_token(uid: str, token: str) -> Usuario | None:
+        """Devolve a conta do link, ou nada se o link não presta."""
+        try:
+            usuario = Usuario.objects.get(pk=urlsafe_base64_decode(uid).decode())
+        except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
+            return None
+
+        if not usuario.is_active or not default_token_generator.check_token(usuario, token):
+            return None
+        return usuario
