@@ -43,6 +43,11 @@ class StatusPagamento(models.TextChoices):
     ESTORNADO = 'estornado', 'Estornado'
 
 
+#: Teto de pedidos esperando pagamento por conta, para o checkout não virar
+#: fábrica de pedido fantasma.
+PEDIDOS_PENDENTES_MAXIMOS = 5
+
+
 def gerar_numero() -> str:
     """Número do pedido, sempre gerado aqui: data mais sorteio."""
     return f'PED-{timezone.now():%Y%m%d}-{token_hex(3).upper()}'
@@ -63,6 +68,7 @@ class PedidoQuerySet(models.QuerySet):
         with transaction.atomic():
             carrinho = Carrinho.objects.select_for_update().filter(usuario=usuario).first()
             itens = self._itens_conferidos(carrinho)
+            self._conferir_pendentes(usuario)
 
             subtotal = sum(
                 (item.produto.preco * item.quantidade for item in itens), Decimal('0.00')
@@ -108,6 +114,16 @@ class PedidoQuerySet(models.QuerySet):
             raise ValidationError({'itens': 'Há produto indisponível no carrinho.'})
 
         return itens
+
+    def _conferir_pendentes(self, usuario) -> None:
+        """Recusa a conta que já acumulou pedidos esperando pagamento."""
+        pendentes = self.filter(
+            usuario=usuario, status=StatusPedido.AGUARDANDO_PAGAMENTO
+        ).count()
+        if pendentes >= PEDIDOS_PENDENTES_MAXIMOS:
+            raise ValidationError(
+                {'pedido': 'Há pedidos demais aguardando pagamento nesta conta.'}
+            )
 
 
 class Pedido(models.Model):

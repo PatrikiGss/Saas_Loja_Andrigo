@@ -14,6 +14,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from loja.models import Categoria, Produto, Subtipo
+from painel.models import EventoAdministrativo
 
 Usuario = get_user_model()
 
@@ -533,6 +534,43 @@ class EscritaProdutoTests(BaseCatalogoTests):
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AuditoriaDoCatalogoTests(BaseCatalogoTests):
+    """Operação da equipe no catálogo deixa rastro."""
+
+    def test_ajuste_de_estoque_gera_evento(self) -> None:
+        produto = criar_produto(self.vape, sku='AUD-0001', estoque=5)
+        self.client.force_authenticate(self.equipe)
+
+        self.client.post(
+            reverse('produto-estoque', args=[produto.id]), {'delta': 3}, format='json'
+        )
+
+        evento = EventoAdministrativo.objects.get(acao='estoque_ajustado')
+        self.assertEqual(evento.ator, self.equipe)
+        self.assertEqual(evento.alvo, 'produto:AUD-0001')
+        self.assertIn('delta=3', evento.detalhes)
+
+    def test_cadastro_de_produto_gera_evento(self) -> None:
+        self.client.force_authenticate(self.equipe)
+
+        self.client.post(
+            reverse('produto-list'), payload_produto(self.vape, sku='AUD-0002'), format='json'
+        )
+
+        evento = EventoAdministrativo.objects.get(acao='produto_criado')
+        self.assertEqual(evento.alvo, 'produto:AUD-0002')
+
+    def test_tentativa_negada_nao_gera_evento(self) -> None:
+        produto = criar_produto(self.vape)
+        self.client.force_authenticate(self.cliente)
+
+        self.client.post(
+            reverse('produto-estoque', args=[produto.id]), {'delta': 3}, format='json'
+        )
+
+        self.assertEqual(EventoAdministrativo.objects.count(), 0)
 
 
 class AjusteEstoqueTests(BaseCatalogoTests):

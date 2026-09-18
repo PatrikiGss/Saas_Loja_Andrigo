@@ -1,6 +1,7 @@
 """Endpoints de conta, perfil e administração de usuários."""
 from __future__ import annotations
 
+from axes.utils import reset
 from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
 from rest_framework import generics, mixins, permissions, status, viewsets
@@ -11,12 +12,14 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from painel.emails import enviar_recuperacao_de_senha
+from painel.auditoria import registrar
+from painel.emails import enviar_ativacao_de_conta, enviar_recuperacao_de_senha
 from painel.models import Endereco, Perfil, definir_nivel, invalidar_tokens, nivel_de
 from painel.permissions import EhAdmin
 from painel.serializers import (
     AlteracaoNivelSerializer,
     AlterarSenhaSerializer,
+    AtivarContaSerializer,
     CadastroSerializer,
     EnderecoSerializer,
     LoginSerializer,
@@ -31,20 +34,62 @@ Usuario = get_user_model()
 
 
 class CadastroView(generics.CreateAPIView):
-    """Cria contas de nível usuário. Público, com limite de tentativas."""
+    """Cria contas de nível usuário. Público, com limite de tentativas.
+
+    A conta nasce desativada e só passa a funcionar depois que a pessoa
+    confirma o e-mail, o que encarece a criação de conta em massa.
+    """
 
     serializer_class = CadastroSerializer
     permission_classes = (permissions.AllowAny,)
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'auth'
 
+    def perform_create(self, serializer: CadastroSerializer) -> None:
+        conta = serializer.save()
+        enviar_ativacao_de_conta(conta)
+
+
+class AtivarContaView(generics.GenericAPIView):
+    """Confirma o e-mail do cadastro e libera a conta."""
+
+    serializer_class = AtivarContaSerializer
+    permission_classes = (permissions.AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'auth'
+
+    def post(self, request: Request) -> Response:
+        entrada = self.get_serializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+
+        usuario = entrada.validated_data['usuario']
+        usuario.is_active = True
+        usuario.save(update_fields=('is_active',))
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class LoginView(TokenObtainPairView):
-    """Emite o par de tokens. O limite por minuto dificulta força bruta."""
+    """Emite o par de tokens.
+
+    Duas barreiras contra força bruta: o limite por minuto, que é por IP, e o
+    bloqueio por conta depois de algumas senhas erradas.
+    """
 
     serializer_class = LoginSerializer
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'auth'
+
+    def post(self, request: Request, *args, **kwargs) -> Response:
+        resposta = super().post(request, *args, **kwargs)
+
+        if resposta.status_code == status.HTTP_200_OK:
+            # O axes zera a contagem no `login()` do Django, que o JWT nunca
+            # chama. Sem isto, quem errou algumas vezes e depois acertou
+            # continuaria com as falhas penduradas.
+            reset(username=str(request.data.get('email', '')).strip().lower())
+
+        return resposta
 
 
 class RefreshView(TokenRefreshView):
@@ -169,6 +214,12 @@ class UsuarioViewSet(
     def perform_update(self, serializer: UsuarioAdminSerializer) -> None:
         self._garantir_conta_administravel(serializer.instance)
         serializer.save()
+        registrar(
+            self.request.user,
+            'conta_atualizada',
+            alvo=f'conta:{serializer.instance.pk}',
+            detalhes=f'ativo={serializer.instance.is_active}',
+        )
 
     @action(detail=True, methods=('post',), url_path='nivel', url_name='nivel')
     def alterar_nivel(self, request: Request, pk: str | None = None) -> Response:
@@ -183,6 +234,12 @@ class UsuarioViewSet(
         entrada = AlteracaoNivelSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         definir_nivel(usuario, entrada.validated_data['nivel'])
+        registrar(
+            request.user,
+            'nivel_alterado',
+            alvo=f'conta:{usuario.pk}',
+            detalhes=entrada.validated_data['nivel'],
+        )
 
         return Response({'nivel': nivel_de(usuario)}, status=status.HTTP_200_OK)
 

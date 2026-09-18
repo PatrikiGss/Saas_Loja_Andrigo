@@ -3,13 +3,17 @@ from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from rest_framework import status
@@ -17,7 +21,15 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from loja.models import Categoria, Produto, Subtipo
-from painel.models import Endereco, Nivel, Perfil
+from painel.models import (
+    TENTATIVAS_DE_ENVIO,
+    EmailPendente,
+    Endereco,
+    EventoAdministrativo,
+    Nivel,
+    Perfil,
+)
+from painel.tokens import token_de_ativacao
 
 Usuario = get_user_model()
 
@@ -66,6 +78,20 @@ class CadastroTests(BasePainelTests):
         self.assertFalse(conta.is_staff)
         self.assertFalse(conta.is_superuser)
         self.assertEqual(resposta.data['nivel'], Nivel.USUARIO)
+
+    def test_conta_nasce_desativada_esperando_confirmacao(self) -> None:
+        resposta = self.client.post(self.url, self.payload(), format='json')
+
+        conta = Usuario.objects.get(username='novo@example.com')
+        self.assertFalse(conta.is_active)
+        self.assertFalse(resposta.data['ativo'])
+
+    def test_cadastro_enfileira_o_email_de_ativacao(self) -> None:
+        self.client.post(self.url, self.payload(), format='json')
+
+        pendente = EmailPendente.objects.get()
+        self.assertEqual(pendente.destinatario, 'novo@example.com')
+        self.assertIn('/ativar/', pendente.corpo)
 
     def test_conta_nasce_com_perfil(self) -> None:
         self.client.post(self.url, self.payload(), format='json')
@@ -882,6 +908,15 @@ class AlterarSenhaTests(BasePainelTests):
         resposta = APIClient().post(reverse('refresh'), {'refresh': refresh}, format='json')
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_troca_derruba_o_access_token_atual(self) -> None:
+        # O token carrega a marca da senha, então trocar a senha o invalida
+        # na hora, sem esperar os 15 minutos de validade.
+        self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
+
+        resposta = self.client.get(reverse('perfil'))
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
     def test_nao_mexe_na_senha_de_outra_conta(self) -> None:
         self.client.post(
             self.url,
@@ -920,22 +955,23 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
             'token': default_token_generator.make_token(conta),
         }
 
-    def test_pedido_envia_o_email(self) -> None:
+    def test_pedido_enfileira_o_email(self) -> None:
         resposta = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
 
         self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertIn('redefinir-senha', mail.outbox[0].body)
+        pendente = EmailPendente.objects.get()
+        self.assertEqual(pendente.destinatario, self.usuario.email)
+        self.assertIn('redefinir-senha', pendente.corpo)
 
     def test_email_inexistente_responde_igual(self) -> None:
         existente = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
-        mail.outbox.clear()
+        EmailPendente.objects.all().delete()
 
         inexistente = self.client.post(self.url_pedido, {'email': 'ninguem@example.com'}, format='json')
 
         self.assertEqual(inexistente.status_code, existente.status_code)
         self.assertEqual(inexistente.data, existente.data)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(EmailPendente.objects.count(), 0)
 
     def test_conta_desativada_nao_recebe_email(self) -> None:
         self.usuario.is_active = False
@@ -944,7 +980,7 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
         resposta = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
 
         self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(EmailPendente.objects.count(), 0)
 
     def test_email_invalido(self) -> None:
         resposta = self.client.post(self.url_pedido, {'email': 'nao-e-email'}, format='json')
@@ -1021,6 +1057,221 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
 
         resposta = self.client.post(reverse('refresh'), {'refresh': refresh}, format='json')
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AtivacaoDeContaTests(BasePainelTests):
+    """Confirmação do e-mail do cadastro."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.conta = criar_usuario('novo@example.com', is_active=False)
+        self.url = reverse('ativar-conta')
+
+    def credenciais(self, conta: Usuario | None = None) -> dict:
+        alvo = conta or self.conta
+        return {
+            'uid': urlsafe_base64_encode(force_bytes(alvo.pk)),
+            'token': token_de_ativacao.make_token(alvo),
+        }
+
+    def test_ativacao_valida(self) -> None:
+        resposta = self.client.post(self.url, self.credenciais(), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
+        self.conta.refresh_from_db()
+        self.assertTrue(self.conta.is_active)
+
+    def test_login_so_funciona_depois_de_ativar(self) -> None:
+        credenciais = {'email': self.conta.email, 'password': SENHA}
+        antes = self.client.post(reverse('login'), credenciais, format='json')
+
+        self.client.post(self.url, self.credenciais(), format='json')
+        depois = self.client.post(reverse('login'), credenciais, format='json')
+
+        self.assertEqual(antes.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(depois.status_code, status.HTTP_200_OK)
+
+    def test_token_invalido(self) -> None:
+        dados = {**self.credenciais(), 'token': 'nao-presta'}
+
+        resposta = self.client.post(self.url, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.conta.refresh_from_db()
+        self.assertFalse(self.conta.is_active)
+
+    def test_uid_invalido(self) -> None:
+        dados = {**self.credenciais(), 'uid': 'nao-existe'}
+
+        resposta = self.client.post(self.url, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_token_de_outra_conta(self) -> None:
+        outra = criar_usuario('outra@example.com', is_active=False)
+        dados = {
+            'uid': urlsafe_base64_encode(force_bytes(self.conta.pk)),
+            'token': token_de_ativacao.make_token(outra),
+        }
+
+        resposta = self.client.post(self.url, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_token_nao_serve_duas_vezes(self) -> None:
+        dados = self.credenciais()
+        self.client.post(self.url, dados, format='json')
+
+        resposta = self.client.post(self.url, dados, format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(PASSWORD_RESET_TIMEOUT=-1)
+    def test_token_expirado(self) -> None:
+        resposta = self.client.post(self.url, self.credenciais(), format='json')
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class FilaDeEmailTests(BasePainelTests):
+    """Fila de e-mail e o comando que entrega."""
+
+    def enfileirar(self, **campos) -> EmailPendente:
+        dados = {'assunto': 'Assunto', 'corpo': 'Corpo', 'destinatario': 'alguem@example.com'}
+        dados.update(campos)
+        return EmailPendente.objects.create(**dados)
+
+    def test_comando_entrega_e_marca_a_linha(self) -> None:
+        pendente = self.enfileirar()
+
+        call_command('enviar_emails')
+
+        pendente.refresh_from_db()
+        self.assertIsNotNone(pendente.enviado_em)
+        self.assertEqual(pendente.tentativas, 1)
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_falha_registra_a_tentativa(self) -> None:
+        pendente = self.enfileirar()
+
+        with patch('painel.emails.send_mail', side_effect=OSError('servidor recusou a conexão')):
+            call_command('enviar_emails')
+
+        pendente.refresh_from_db()
+        self.assertIsNone(pendente.enviado_em)
+        self.assertEqual(pendente.tentativas, 1)
+        self.assertEqual(pendente.ultimo_erro, 'OSError')
+
+    def test_erro_guardado_nao_traz_a_mensagem_do_provedor(self) -> None:
+        pendente = self.enfileirar()
+
+        with patch('painel.emails.send_mail', side_effect=OSError('senha do smtp invalida')):
+            call_command('enviar_emails')
+
+        pendente.refresh_from_db()
+        self.assertNotIn('senha', pendente.ultimo_erro)
+
+    def test_comando_nao_reenvia_o_que_ja_saiu(self) -> None:
+        self.enfileirar(enviado_em=timezone.now())
+
+        call_command('enviar_emails')
+
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_comando_desiste_depois_do_limite_de_tentativas(self) -> None:
+        self.enfileirar(tentativas=TENTATIVAS_DE_ENVIO)
+
+        call_command('enviar_emails')
+
+        self.assertEqual(len(mail.outbox), 0)
+
+
+class BloqueioDeLoginTests(BasePainelTests):
+    """Bloqueio por conta, e não só por IP."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.usuario = criar_usuario()
+        self.outro = criar_usuario('outro@example.com')
+        self.url = reverse('login')
+
+    def errar(self, vezes: int, conta: Usuario | None = None) -> None:
+        alvo = conta or self.usuario
+        for _ in range(vezes):
+            self.client.post(self.url, {'email': alvo.email, 'password': 'errada'}, format='json')
+
+    def entrar(self, conta: Usuario | None = None):
+        alvo = conta or self.usuario
+        return self.client.post(self.url, {'email': alvo.email, 'password': SENHA}, format='json')
+
+    def test_conta_e_bloqueada_depois_do_limite(self) -> None:
+        self.errar(settings.AXES_FAILURE_LIMIT)
+
+        resposta = self.entrar()
+
+        self.assertNotEqual(resposta.status_code, status.HTTP_200_OK)
+        self.assertNotIn('access', resposta.data or {})
+
+    def test_bloqueio_atinge_so_a_conta_atacada(self) -> None:
+        self.errar(settings.AXES_FAILURE_LIMIT)
+
+        resposta = self.entrar(self.outro)
+
+        self.assertEqual(resposta.status_code, status.HTTP_200_OK)
+
+    def test_login_certo_zera_a_contagem(self) -> None:
+        self.errar(settings.AXES_FAILURE_LIMIT - 1)
+        self.entrar()
+
+        self.errar(settings.AXES_FAILURE_LIMIT - 1)
+        resposta = self.entrar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_200_OK)
+
+
+class AuditoriaTests(BasePainelTests):
+    """Operação administrativa deixa rastro."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.admin = criar_admin()
+        self.usuario = criar_usuario()
+        autenticar(self.client, self.admin)
+
+    def test_promocao_gera_evento(self) -> None:
+        self.client.post(
+            reverse('usuario-nivel', args=[self.usuario.pk]), {'nivel': Nivel.ADMIN}, format='json'
+        )
+
+        evento = EventoAdministrativo.objects.get(acao='nivel_alterado')
+        self.assertEqual(evento.ator, self.admin)
+        self.assertEqual(evento.alvo, f'conta:{self.usuario.pk}')
+        self.assertEqual(evento.detalhes, Nivel.ADMIN)
+
+    def test_desativacao_gera_evento(self) -> None:
+        self.client.patch(
+            reverse('usuario-detail', args=[self.usuario.pk]), {'ativo': False}, format='json'
+        )
+
+        evento = EventoAdministrativo.objects.get(acao='conta_atualizada')
+        self.assertEqual(evento.detalhes, 'ativo=False')
+
+    def test_tentativa_negada_nao_gera_evento(self) -> None:
+        autenticar(self.client, self.usuario)
+
+        self.client.post(
+            reverse('usuario-nivel', args=[self.admin.pk]), {'nivel': Nivel.USUARIO}, format='json'
+        )
+
+        self.assertEqual(EventoAdministrativo.objects.count(), 0)
+
+    def test_evento_nao_guarda_dado_pessoal(self) -> None:
+        self.client.post(
+            reverse('usuario-nivel', args=[self.usuario.pk]), {'nivel': Nivel.ADMIN}, format='json'
+        )
+
+        evento = EventoAdministrativo.objects.get()
+        self.assertNotIn('@', f'{evento.alvo}{evento.detalhes}')
 
 
 class IntegracaoComLojaTests(BasePainelTests):

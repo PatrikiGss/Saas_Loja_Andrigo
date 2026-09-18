@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
 from carrinho.models import Carrinho
+from painel.auditoria import registrar
 from painel.permissions import EhAdmin, e_admin
 from pedidos import cep as consulta_de_cep
 from pedidos.emails import enviar_confirmacao_de_pedido
@@ -40,6 +41,8 @@ class CheckoutView(generics.GenericAPIView):
 
     serializer_class = CheckoutSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'pedido'
 
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
@@ -94,6 +97,13 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
             pedido.alterar_status(entrada.validated_data['status'])
         except ErroDeValidacaoDoModelo as erro:
             raise ValidationError(serializers.as_serializer_error(erro)) from erro
+
+        registrar(
+            request.user,
+            'pedido_status_alterado',
+            alvo=f'pedido:{pedido.numero}',
+            detalhes=pedido.status,
+        )
 
         return Response(PedidoSerializer(pedido).data)
 

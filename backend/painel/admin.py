@@ -5,7 +5,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 
-from painel.models import Perfil
+from painel.models import EmailPendente, EventoAdministrativo, Perfil
 
 Usuario = get_user_model()
 
@@ -30,3 +30,37 @@ class ContaAdmin(UserAdmin):
 
 admin.site.unregister(Usuario)
 admin.site.register(Usuario, ContaAdmin)
+
+
+@admin.register(EventoAdministrativo)
+class EventoAdministrativoAdmin(admin.ModelAdmin):
+    """Trilha de auditoria. Só leitura: registro que se edita não é registro."""
+
+    list_display = ('criado_em', 'acao', 'ator', 'alvo', 'detalhes')
+    list_filter = ('acao',)
+    search_fields = ('alvo', 'detalhes', 'ator__username')
+    date_hierarchy = 'criado_em'
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_change_permission(self, request, obj=None) -> bool:
+        return False
+
+    def has_delete_permission(self, request, obj=None) -> bool:
+        return False
+
+
+@admin.register(EmailPendente)
+class EmailPendenteAdmin(admin.ModelAdmin):
+    """Fila de e-mail, para ver o que saiu e o que emperrou."""
+
+    list_display = ('criado_em', 'assunto', 'destinatario', 'tentativas', 'enviado_em', 'ultimo_erro')
+    list_filter = ('enviado_em',)
+    search_fields = ('destinatario', 'assunto')
+
+    def has_add_permission(self, request) -> bool:
+        return False
+
+    def has_change_permission(self, request, obj=None) -> bool:
+        return False

@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import TokenBlacklistView
 
 from painel.views import (
     AlterarSenhaView,
+    AtivarContaView,
     CadastroView,
     EnderecoViewSet,
     LoginView,
@@ -21,6 +22,7 @@ router.register('enderecos', EnderecoViewSet, basename='endereco')
 
 urlpatterns = [
     path('auth/cadastro/', CadastroView.as_view(), name='cadastro'),
+    path('auth/ativar/', AtivarContaView.as_view(), name='ativar-conta'),
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/refresh/', RefreshView.as_view(), name='refresh'),
     path('auth/logout/', TokenBlacklistView.as_view(), name='logout'),

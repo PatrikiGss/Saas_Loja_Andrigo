@@ -16,6 +16,7 @@ from loja.serializers import (
     ProdutoSerializer,
     SubtipoSerializer,
 )
+from painel.auditoria import registrar
 from painel.permissions import LeituraPublicaEscritaAdmin, e_admin
 
 
@@ -60,6 +61,19 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             return ProdutoGestaoSerializer
         return ProdutoSerializer
 
+    def perform_create(self, serializer: serializers.ModelSerializer) -> None:
+        produto = serializer.save()
+        registrar(self.request.user, 'produto_criado', alvo=f'produto:{produto.sku}')
+
+    def perform_update(self, serializer: serializers.ModelSerializer) -> None:
+        produto = serializer.save()
+        registrar(
+            self.request.user,
+            'produto_alterado',
+            alvo=f'produto:{produto.sku}',
+            detalhes=f'preco={produto.preco} ativo={produto.ativo}',
+        )
+
     def perform_destroy(self, instance: Produto) -> None:
         """Só apaga produto sem histórico.
 
@@ -72,6 +86,8 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         except ProtectedError as erro:
             raise ProdutoEmUso() from erro
 
+        registrar(self.request.user, 'produto_excluido', alvo=f'produto:{instance.sku}')
+
     @action(detail=True, methods=('post',), url_path='estoque', url_name='estoque')
     def ajustar_estoque(self, request: Request, pk: str | None = None) -> Response:
         """Repõe ou dá baixa no estoque do produto."""
@@ -83,6 +99,13 @@ class ProdutoViewSet(viewsets.ModelViewSet):
             estoque = produto.ajustar_estoque(entrada.validated_data['delta'])
         except ErroDeValidacaoDoModelo as erro:
             raise ValidationError(serializers.as_serializer_error(erro)) from erro
+
+        registrar(
+            request.user,
+            'estoque_ajustado',
+            alvo=f'produto:{produto.sku}',
+            detalhes=f'delta={entrada.validated_data["delta"]} estoque={estoque}',
+        )
 
         return Response({'estoque': estoque}, status=status.HTTP_200_OK)
 

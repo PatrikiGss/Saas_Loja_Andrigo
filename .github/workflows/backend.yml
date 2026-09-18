@@ -43,3 +43,8 @@ jobs:
 
       - name: Cobertura
         run: coverage report
+
+      - name: Vulnerabilidades nas dependências
+        # Audita o que o projeto declara. O pip do próprio runner fica de
+        # fora: o alerta dele não diz nada sobre este código.
+        run: pip-audit -r ../requirements.txt -r ../requirements-dev.txt

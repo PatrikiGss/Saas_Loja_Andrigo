@@ -12,6 +12,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 
 from painel.models import Endereco, Nivel, Perfil, nivel_de
+from painel.tokens import token_de_ativacao
 
 Usuario = get_user_model()
 
@@ -23,6 +24,16 @@ def problemas_da_senha(senha: str, usuario: Usuario) -> list[str]:
     except ErroDeValidacaoDoModelo as erro:
         return list(erro.messages)
     return []
+
+
+def conta_do_token(uid: str, token: str, gerador=default_token_generator) -> Usuario | None:
+    """Devolve a conta do link recebido por e-mail, ou nada se o link não presta."""
+    try:
+        usuario = Usuario.objects.get(pk=urlsafe_base64_decode(uid).decode())
+    except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
+        return None
+
+    return usuario if gerador.check_token(usuario, token) else None
 
 
 class CadastroSerializer(serializers.Serializer):
@@ -60,12 +71,16 @@ class CadastroSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data: dict) -> Usuario:
-        """`create_user` guarda a senha com hash e nasce sem privilégio."""
+        """Cria a conta desativada, esperando a confirmação do e-mail.
+
+        `create_user` guarda a senha com hash e a conta nasce sem privilégio.
+        """
         return Usuario.objects.create_user(
             username=validated_data['email'],
             email=validated_data['email'],
             password=validated_data['password'],
             first_name=validated_data['nome'],
+            is_active=False,
         )
 
     def to_representation(self, instance: Usuario) -> dict:
@@ -75,7 +90,23 @@ class CadastroSerializer(serializers.Serializer):
             'email': instance.email,
             'nome': instance.first_name,
             'nivel': nivel_de(instance),
+            'ativo': instance.is_active,
         }
+
+
+class AtivarContaSerializer(serializers.Serializer):
+    """Confirmação do e-mail pelo link do cadastro."""
+
+    uid = serializers.CharField(max_length=40)
+    token = serializers.CharField(max_length=64)
+
+    def validate(self, attrs: dict) -> dict:
+        usuario = conta_do_token(attrs['uid'], attrs['token'], token_de_ativacao)
+        if usuario is None or usuario.is_active:
+            raise serializers.ValidationError({'token': 'Link inválido ou expirado.'})
+
+        attrs['usuario'] = usuario
+        return attrs
 
 
 class LoginSerializer(TokenObtainPairSerializer):
@@ -218,8 +249,8 @@ class RedefinirSenhaSerializer(serializers.Serializer):
     nova_senha = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
 
     def validate(self, attrs: dict) -> dict:
-        usuario = self._conta_do_token(attrs['uid'], attrs['token'])
-        if usuario is None:
+        usuario = conta_do_token(attrs['uid'], attrs['token'])
+        if usuario is None or not usuario.is_active:
             raise serializers.ValidationError({'token': 'Link inválido ou expirado.'})
 
         if problemas := problemas_da_senha(attrs['nova_senha'], usuario):
@@ -227,15 +258,3 @@ class RedefinirSenhaSerializer(serializers.Serializer):
 
         attrs['usuario'] = usuario
         return attrs
-
-    @staticmethod
-    def _conta_do_token(uid: str, token: str) -> Usuario | None:
-        """Devolve a conta do link, ou nada se o link não presta."""
-        try:
-            usuario = Usuario.objects.get(pk=urlsafe_base64_decode(uid).decode())
-        except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
-            return None
-
-        if not usuario.is_active or not default_token_generator.check_token(usuario, token):
-            return None
-        return usuario

@@ -7,7 +7,9 @@ from urllib.error import URLError
 
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.urls import reverse
 from rest_framework import status
@@ -16,10 +18,16 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from carrinho.models import Carrinho
 from loja.models import Categoria, Produto, Subtipo
-from painel.models import Endereco
+from painel.models import EmailPendente, Endereco, EventoAdministrativo
 from pedidos.cep import CepInvalido, ConsultaIndisponivel, consultar
 from pedidos.frete import ServicoFrete, cotar_servico
-from pedidos.models import ItemPedido, Pedido, StatusPagamento, StatusPedido
+from pedidos.models import (
+    PEDIDOS_PENDENTES_MAXIMOS,
+    ItemPedido,
+    Pedido,
+    StatusPagamento,
+    StatusPedido,
+)
 
 Usuario = get_user_model()
 
@@ -79,6 +87,7 @@ class BasePedidoTests(APITestCase):
         )
 
     def setUp(self) -> None:
+        cache.clear()  # o limite por minuto do checkout vive no cache
         self.usuario = criar_usuario('cliente@example.com')
         self.outro = criar_usuario('outro@example.com')
         self.endereco = criar_endereco(self.usuario)
@@ -666,34 +675,117 @@ class CepTests(BasePedidoTests):
 
 
 class EmailDePedidoTests(BasePedidoTests):
-    """Confirmação de pedido."""
+    """Confirmação de pedido, que sai pela fila."""
 
-    def test_confirmacao_e_enviada_apos_o_pedido(self) -> None:
+    def test_confirmacao_entra_na_fila(self) -> None:
         self.encher_carrinho()
 
         with self.captureOnCommitCallbacks(execute=True):
             resposta = self.fechar()
 
-        self.assertEqual(len(mail.outbox), 1)
-        mensagem = mail.outbox[0]
-        self.assertIn(resposta.data['numero'], mensagem.subject)
-        self.assertIn('274.80', mensagem.body)
-        self.assertIn('Praça da Sé', mensagem.body)
-        self.assertEqual(mensagem.to, [self.usuario.email])
+        pendente = EmailPendente.objects.get()
+        self.assertIn(resposta.data['numero'], pendente.assunto)
+        self.assertIn('274.80', pendente.corpo)
+        self.assertIn('Praça da Sé', pendente.corpo)
+        self.assertEqual(pendente.destinatario, self.usuario.email)
+        self.assertIsNone(pendente.enviado_em)
 
-    def test_falha_no_envio_nao_desfaz_o_pedido(self) -> None:
+    def test_comando_entrega_a_confirmacao(self) -> None:
         self.encher_carrinho()
+        with self.captureOnCommitCallbacks(execute=True):
+            self.fechar()
+
+        call_command('enviar_emails')
+
+        self.assertEqual(len(mail.outbox), 1)
+        pendente = EmailPendente.objects.get()
+        self.assertIsNotNone(pendente.enviado_em)
+
+    def test_smtp_fora_do_ar_nao_afeta_o_pedido(self) -> None:
+        self.encher_carrinho()
+        with self.captureOnCommitCallbacks(execute=True):
+            resposta = self.fechar()
 
         with patch('painel.emails.send_mail', side_effect=OSError('smtp fora do ar')):
+            call_command('enviar_emails')
+
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Pedido.objects.count(), 1)
+        pendente = EmailPendente.objects.get()
+        self.assertIsNone(pendente.enviado_em)
+        self.assertEqual(pendente.tentativas, 1)
+        self.assertEqual(pendente.ultimo_erro, 'OSError')
+
+    def test_envio_nao_atrasa_a_resposta_do_checkout(self) -> None:
+        # O checkout não fala com o SMTP: se falasse, este mock explodiria.
+        self.encher_carrinho()
+
+        with patch('painel.emails.send_mail', side_effect=AssertionError('não pode enviar aqui')):
             with self.captureOnCommitCallbacks(execute=True):
                 resposta = self.fechar()
 
         self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Pedido.objects.count(), 1)
-        self.assertEqual(len(mail.outbox), 0)
 
     def test_checkout_recusado_nao_manda_email(self) -> None:
         with self.captureOnCommitCallbacks(execute=True):
             self.fechar()
 
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual(EmailPendente.objects.count(), 0)
+
+
+class LimiteDePedidosTests(BasePedidoTests):
+    """Teto de pedidos esperando pagamento."""
+
+    def test_conta_com_pedidos_pendentes_demais_e_recusada(self) -> None:
+        for _ in range(PEDIDOS_PENDENTES_MAXIMOS):
+            self.encher_carrinho()
+            self.fechar()
+
+        self.encher_carrinho()
+        resposta = self.fechar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('pedido', resposta.data)
+        self.assertEqual(Pedido.objects.count(), PEDIDOS_PENDENTES_MAXIMOS)
+
+    def test_pedido_pago_nao_conta_no_teto(self) -> None:
+        for _ in range(PEDIDOS_PENDENTES_MAXIMOS):
+            self.encher_carrinho()
+            self.fechar()
+        Pedido.objects.all().update(status=StatusPedido.PAGO)
+
+        self.encher_carrinho()
+        resposta = self.fechar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
+
+    def test_teto_e_por_conta(self) -> None:
+        for _ in range(PEDIDOS_PENDENTES_MAXIMOS):
+            self.encher_carrinho()
+            self.fechar()
+
+        endereco_do_outro = criar_endereco(self.outro)
+        self.encher_carrinho(self.outro)
+        autenticar(self.client, self.outro)
+        resposta = self.fechar(endereco=endereco_do_outro)
+
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
+
+
+class AuditoriaDePedidoTests(BasePedidoTests):
+    """Mudança de status deixa rastro."""
+
+    def test_mudanca_de_status_gera_evento(self) -> None:
+        self.encher_carrinho()
+        numero = self.fechar().data['numero']
+        administrador = criar_usuario('admin@example.com', is_staff=True)
+        autenticar(self.client, administrador)
+
+        self.client.post(
+            reverse('pedido-status', args=[numero]), {'status': StatusPedido.PAGO}, format='json'
+        )
+
+        evento = EventoAdministrativo.objects.get(acao='pedido_status_alterado')
+        self.assertEqual(evento.ator, administrador)
+        self.assertEqual(evento.alvo, f'pedido:{numero}')
+        self.assertEqual(evento.detalhes, StatusPedido.PAGO)

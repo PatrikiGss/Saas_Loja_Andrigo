@@ -13,6 +13,9 @@ import os
 import sys
 from datetime import timedelta
 from pathlib import Path
+
+from django.utils.csp import CSP
+
 from decouple import config,Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -41,6 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'corsheaders',
+    'axes',
     'loja',
     'painel',
     'carrinho',
@@ -65,9 +70,19 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    # Limite dos endpoints de cadastro e login, contra força bruta, e das
-    # consultas que batem em provedor externo.
-    'DEFAULT_THROTTLE_RATES': {'auth': '10/min', 'consulta': '30/min'},
+    # A API navegável só existe em desenvolvimento: em produção a resposta é
+    # JSON e nada mais.
+    'DEFAULT_RENDERER_CLASSES': (
+        [
+            'rest_framework.renderers.JSONRenderer',
+            'rest_framework.renderers.BrowsableAPIRenderer',
+        ]
+        if DEBUG
+        else ['rest_framework.renderers.JSONRenderer']
+    ),
+    # Limite do cadastro e do login contra força bruta, das consultas que
+    # batem em provedor externo e do fechamento de pedido.
+    'DEFAULT_THROTTLE_RATES': {'auth': '10/min', 'consulta': '30/min', 'pedido': '20/min'},
 }
 
 SIMPLE_JWT = {
@@ -77,17 +92,46 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
+    # O token carrega a marca da senha: trocar a senha derruba na hora até o
+    # access token que já estava emitido.
+    'CHECK_REVOKE_TOKEN': True,
 }
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.csp.ContentSecurityPolicyMiddleware',
+    # Precisa vir depois da autenticação: é ela que conta as tentativas.
+    'axes.middleware.AxesMiddleware',
 ]
+
+# Bloqueio de tentativas de login por conta: um atacante com muitos IPs não
+# ganha tentativas infinitas contra o mesmo e-mail. O limite por IP continua
+# sendo o do DRF, que é por minuto e não prende ninguém: bloquear por IP aqui
+# derrubaria o escritório inteiro que compartilha a mesma saída.
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+AXES_LOCKOUT_PARAMETERS = ['username']
+
+# O axes avisa que não bloqueamos por IP (axes.W006). É intencional: o freio
+# por IP é o do DRF, que expira em um minuto e não prende quem está atrás de
+# uma saída compartilhada. As duas defesas existem, em camadas diferentes.
+SILENCED_SYSTEM_CHECKS = ['axes.W006']
+AXES_FAILURE_LIMIT = config('AXES_LIMITE_DE_FALHAS', default=5, cast=int)
+AXES_COOLOFF_TIME = timedelta(minutes=config('AXES_MINUTOS_BLOQUEADO', default=15, cast=int))
+AXES_RESET_ON_SUCCESS = True
+
+# Origens do frontend. Lista explícita: nada de liberar geral.
+CORS_ALLOWED_ORIGINS = config('CORS_ORIGINS', default='http://localhost:5173', cast=Csv())
 
 ROOT_URLCONF = 'configs.urls'
 
@@ -99,6 +143,7 @@ TEMPLATES = [
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.request',
+                'django.template.context_processors.csp',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
@@ -118,6 +163,91 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+
+# Cache
+# Em produção o limite de tentativas só vale de verdade com cache
+# compartilhado: na memória do processo, cada worker tem a própria contagem.
+
+REDIS_URL = config('REDIS_URL', default='')
+
+CACHES = {
+    'default': {
+        'BACKEND': (
+            'django.core.cache.backends.redis.RedisCache'
+            if REDIS_URL
+            else 'django.core.cache.backends.locmem.LocMemCache'
+        ),
+        'LOCATION': REDIS_URL or 'saas-loja',
+    }
+}
+
+
+# Segurança de transporte e cabeçalhos
+# Ligados quando DEBUG está desligado, para o desenvolvimento local seguir
+# em http sem redirecionamento.
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = 0 if DEBUG else config('HSTS_SEGUNDOS', default=31536000, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
+# Atrás de proxy ou load balancer, é este cabeçalho que diz se veio por https.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# A API devolve JSON; o único HTML é o admin. Nada de terceiros.
+SECURE_CSP = {
+    'default-src': [CSP.NONE],
+    'base-uri': [CSP.NONE],
+    'frame-ancestors': [CSP.NONE],
+    'form-action': [CSP.SELF],
+    'connect-src': [CSP.SELF],
+    'img-src': [CSP.SELF, 'data:'],
+    'style-src': [CSP.SELF, CSP.NONCE],
+    'script-src': [CSP.SELF, CSP.NONCE],
+}
+
+
+# Logs e monitoramento
+
+NIVEL_DE_LOG = config('LOG_LEVEL', default='INFO')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'padrao': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'padrao'},
+    },
+    'root': {'handlers': ['console'], 'level': NIVEL_DE_LOG},
+    'loggers': {
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'auditoria': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+    },
+}
+
+# Monitoramento de erro. Sem DSN no ambiente, nada é iniciado e nada sai daqui.
+SENTRY_DSN = config('SENTRY_DSN', default='')
+
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=config('SENTRY_AMBIENTE', default='producao'),
+        traces_sample_rate=config('SENTRY_AMOSTRAGEM', default=0.0, cast=float),
+        # Sem dado pessoal: nem e-mail, nem IP, nem corpo da requisição.
+        send_default_pii=False,
+    )
 
 
 # Password validation

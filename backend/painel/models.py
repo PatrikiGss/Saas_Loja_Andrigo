@@ -74,6 +74,60 @@ class Perfil(models.Model):
         return nivel_de(self.usuario)
 
 
+#: Tentativas de entrega antes de desistir de uma mensagem.
+TENTATIVAS_DE_ENVIO = 5
+
+
+class EmailPendente(models.Model):
+    """Fila de e-mail no banco.
+
+    O envio sai da requisição: quem manda a mensagem só grava a linha, e o
+    comando `enviar_emails` entrega depois. SMTP lento ou fora do ar não
+    segura o cliente nem desfaz o que ele acabou de fazer.
+    """
+
+    destinatario = models.EmailField()
+    assunto = models.CharField(max_length=200)
+    corpo = models.TextField()
+    tentativas = models.PositiveSmallIntegerField(default=0)
+    ultimo_erro = models.CharField(max_length=100, blank=True)
+    enviado_em = models.DateTimeField(null=True, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('criado_em',)
+        indexes = (models.Index(fields=('enviado_em', 'criado_em'), name='email_pendente_fila_idx'),)
+
+    def __str__(self) -> str:
+        return f'{self.assunto} ({self.pk})'
+
+
+class EventoAdministrativo(models.Model):
+    """Registro de operação administrativa: quem fez, o que fez e em quem.
+
+    Existe para responder "quem mudou isso" depois que a poeira baixa. A
+    conta do responsável pode ser apagada; o registro fica.
+    """
+
+    ator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='eventos_administrativos',
+    )
+    acao = models.CharField(max_length=40)
+    alvo = models.CharField(max_length=120, blank=True)
+    detalhes = models.CharField(max_length=200, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-criado_em',)
+        indexes = (models.Index(fields=('-criado_em',), name='evento_admin_data_idx'),)
+
+    def __str__(self) -> str:
+        return f'{self.acao} em {self.alvo}'
+
+
 class UF(models.TextChoices):
     """Unidades da federação, para validar o destino da entrega."""
 
