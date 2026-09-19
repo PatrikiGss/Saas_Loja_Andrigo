@@ -6,23 +6,33 @@
  * A navegação é uma lista aqui dentro porque cada etapa do projeto acrescenta
  * uma rota; assim entrar no menu é uma linha, e não uma edição de marcação.
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import { NOME_DA_LOJA } from '@/app/config'
 import BotaoBase from '@/components/BotaoBase.vue'
 import { useSessao } from '@/modules/auth/stores/sessao'
+import { useCarrinho } from '@/modules/carrinho/stores/carrinho'
 
 interface ItemDeNavegacao {
   rota: string
   texto: string
 }
 
-/** Cresce conforme as rotas existem de verdade. Vazio não desenha o menu. */
-const navegacao: ItemDeNavegacao[] = []
+/**
+ * Cresce conforme as rotas existem de verdade.
+ *
+ * Pedidos só entra para quem entrou: a rota exige autenticação, e oferecer o
+ * link a um visitante seria mandá-lo para o login sem ele ter pedido nada.
+ */
+const navegacao = computed<ItemDeNavegacao[]>(() => [
+  { rota: '/catalogo', texto: 'Catálogo' },
+  ...(sessao.autenticado ? [{ rota: '/pedidos', texto: 'Pedidos' }] : []),
+])
 
 const router = useRouter()
 const sessao = useSessao()
+const carrinho = useCarrinho()
 const saindo = ref(false)
 
 async function sair() {
@@ -54,7 +64,19 @@ async function sair() {
 
         <div class="conta">
           <template v-if="sessao.autenticado">
-            <RouterLink class="conta__nome" to="/conta/senha" :title="sessao.usuario?.email">
+            <!-- Só para quem entrou: o carrinho existe por conta no backend,
+                 e um visitante não tem carrinho para ver. -->
+            <RouterLink class="conta__carrinho" to="/carrinho">
+              Carrinho
+              <span v-if="carrinho.quantidadeTotal" class="conta__contagem numerico">
+                {{ carrinho.quantidadeTotal }}
+                <span class="apenas-leitor">
+                  {{ carrinho.quantidadeTotal === 1 ? 'item' : 'itens' }}
+                </span>
+              </span>
+            </RouterLink>
+
+            <RouterLink class="conta__nome" to="/conta" :title="sessao.usuario?.email">
               {{ sessao.nomeExibido }}
             </RouterLink>
             <BotaoBase variante="discreto" :carregando="saindo" @click="sair">Sair</BotaoBase>
@@ -123,6 +145,7 @@ async function sair() {
   font-stretch: 80%;
   letter-spacing: -0.01em;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .menu {
@@ -167,14 +190,39 @@ async function sair() {
   text-decoration: underline;
 }
 
-.conta__entrar {
+.conta__entrar,
+.conta__carrinho {
   font-size: var(--texto-sm);
   font-weight: 600;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.conta__entrar:hover {
+.conta__entrar:hover,
+.conta__carrinho:hover {
   text-decoration: underline;
+}
+
+.conta__carrinho {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+/* O único lugar arredondado de ponta a ponta na interface: uma contagem
+   pequena dentro de um texto. */
+.conta__contagem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 var(--e1);
+  background: var(--tinta);
+  color: var(--papel-alto);
+  border-radius: var(--raio-pilula);
+  font-size: var(--texto-2xs);
+  font-weight: 700;
 }
 
 .conteudo {
@@ -191,5 +239,28 @@ async function sair() {
   font-size: var(--texto-xs);
   color: var(--tinta-media);
   margin: 0;
+}
+
+/* No celular a barra não cabe em uma linha: marca, menu, carrinho, nome e
+   saída disputavam a mesma faixa e o nome era espremido até uma letra. A
+   marca fica sozinha em cima e o resto desce para a segunda linha. */
+@media (max-width: 40rem) {
+  .barra__interno {
+    flex-wrap: wrap;
+    row-gap: var(--e2);
+    padding-block: var(--e3);
+  }
+
+  .marca {
+    flex: 0 0 100%;
+  }
+
+  .conta {
+    gap: var(--e4);
+  }
+
+  .conta__nome {
+    max-width: 9rem;
+  }
 }
 </style>

@@ -59,14 +59,21 @@ const TIPO_POR_STATUS: Record<number, TipoDeErro> = {
 }
 
 /**
- * Faixas de status em que a mensagem do backend pode ir para a tela.
+ * Status em que a mensagem do backend pode ir direto para a tela.
  *
- * Em 400, 409 e 422 o texto é escrito pelo domínio ('Carrinho vazio.') e
- * ajuda. De 500 para cima é detalhe de servidor — e com DEBUG ligado o Django
- * chega a responder HTML de traceback, que não pode encostar na interface.
+ * Só estes três, e a lista é fechada de propósito. Em 400, 409 e 422 o texto
+ * nasce nos nossos serializers e no `clean()` dos models — 'Carrinho vazio.',
+ * 'Quantidade acima do estoque disponível.' — e ajuda de verdade.
+ *
+ * Fora daí quem escreve é o framework, em inglês e falando de dentro: um 404
+ * do DRF responde 'No Pedido matches the given query.', que além de não estar
+ * no idioma da loja entrega o nome do model. De 500 para cima é pior ainda,
+ * porque com DEBUG ligado o Django responde HTML de traceback.
  */
+const STATUS_COM_MENSAGEM_DO_DOMINIO = new Set([400, 409, 422])
+
 function podeAproveitarMensagem(status: number): boolean {
-  return status < 500 && status !== 401 && status !== 429
+  return STATUS_COM_MENSAGEM_DO_DOMINIO.has(status)
 }
 
 /** Erros de um campo de formulário, já achatados para uma frase por campo. */
@@ -78,13 +85,29 @@ export class ErroDaApi extends Error {
   readonly status: number | null
   /** Erro por campo, vindo do DRF. Vazio quando a falha não é de validação. */
   readonly campos: CamposComErro
+  /**
+   * O `detail` cru da resposta, sem filtro.
+   *
+   * Existe para o punhado de endpoints em que o backend recusa com texto
+   * próprio fora dos status confiáveis — `PermissionDenied('Conta
+   * protegida.')`, por exemplo. **Não mostre isto sem saber de onde veio:**
+   * no caso geral é o texto em inglês do framework.
+   */
+  readonly detalheDoServidor: string | null
 
-  constructor(tipo: TipoDeErro, mensagem: string, status: number | null, campos: CamposComErro) {
+  constructor(
+    tipo: TipoDeErro,
+    mensagem: string,
+    status: number | null,
+    campos: CamposComErro,
+    detalheDoServidor: string | null = null,
+  ) {
     super(mensagem)
     this.name = 'ErroDaApi'
     this.tipo = tipo
     this.status = status
     this.campos = campos
+    this.detalheDoServidor = detalheDoServidor
   }
 
   /** Vale a pena oferecer 'tentar de novo'? Reenviar 403 ou 404 não muda nada. */
@@ -135,12 +158,13 @@ export function deErro(falha: unknown): ErroDaApi {
   const tipo = TIPO_POR_STATUS[status] ?? (status >= 500 ? 'servidor' : 'desconhecido')
   const corpo = erro.response.data
 
-  const campos = podeAproveitarMensagem(status) ? camposDe(corpo) : {}
-  const mensagem = podeAproveitarMensagem(status)
+  const confiavel = podeAproveitarMensagem(status)
+  const campos = confiavel ? camposDe(corpo) : {}
+  const mensagem = confiavel
     ? (mensagemGeralDe(corpo) ?? MENSAGEM_PADRAO[tipo])
     : MENSAGEM_PADRAO[tipo]
 
-  return new ErroDaApi(tipo, mensagem, status, campos)
+  return new ErroDaApi(tipo, mensagem, status, campos, mensagemGeralDe(corpo))
 }
 
 /** Chaves que o DRF usa para o erro que não pertence a nenhum campo. */

@@ -68,6 +68,31 @@ describe('deErro', () => {
     expect(erro.message).toBe('A loja não conseguiu responder. Tente de novo em instantes.')
   })
 
+  it('não mostra o 404 do Django, que está em inglês e cita o model', () => {
+    // 'No Pedido matches the given query.' é o texto do get_object_or_404.
+    const erro = deErro(respostaDe(404, { detail: 'No Pedido matches the given query.' }))
+
+    expect(erro.message).toBe('Não encontramos o que você procura.')
+    expect(erro.message).not.toContain('Pedido')
+  })
+
+  it('não mostra o 403 padrão do DRF, que também vem em inglês', () => {
+    const erro = deErro(
+      respostaDe(403, { detail: 'You do not have permission to perform this action.' }),
+    )
+
+    expect(erro.message).toBe('Esta conta não tem acesso a isso.')
+  })
+
+  it('guarda o detail cru para quem souber de onde ele veio', () => {
+    // Alguns endpoints recusam com texto próprio fora dos status confiáveis;
+    // a informação fica guardada, mas não vai sozinha para a tela.
+    const erro = deErro(respostaDe(403, { detail: 'Conta protegida.' }))
+
+    expect(erro.detalheDoServidor).toBe('Conta protegida.')
+    expect(erro.message).not.toBe('Conta protegida.')
+  })
+
   it('ignora o texto de throttle do DRF, que fala do sistema e não da pessoa', () => {
     const erro = deErro(
       respostaDe(429, { detail: 'Request was throttled. Expected available in 59 seconds.' }),

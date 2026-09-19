@@ -27,3 +27,14 @@ export const TEMPO_LIMITE_MS = inteiro(import.meta.env.VITE_TIMEOUT_MS, 15_000)
 
 /** Nome exibido na interface. Provisório: a marca ainda não foi definida. */
 export const NOME_DA_LOJA = 'Loja de pods'
+
+/**
+ * Formato do dinheiro na tela.
+ *
+ * O backend não guarda moeda em lugar nenhum: ele devolve o número e pronto.
+ * O padrão aqui acompanha o resto do modelo, que é brasileiro (CEP, UF, frete
+ * por região) — e é uma variável de ambiente justamente porque a loja não vai
+ * operar no Brasil e essa escolha ainda não foi feita.
+ */
+export const LOCALE = texto(import.meta.env.VITE_LOCALE, 'pt-BR')
+export const MOEDA = texto(import.meta.env.VITE_MOEDA, 'BRL')

@@ -7,6 +7,7 @@
  * de `GET /api/subtipos/` — nada aqui é lista fixa copiada do backend.
  */
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import CarregandoIndicador from '@/components/CarregandoIndicador.vue'
 import EstadoVazio from '@/components/EstadoVazio.vue'
@@ -39,14 +40,30 @@ const categorias = computed(() => agruparPorCategoria(dados.value ?? []))
 
   <ul v-else class="parede">
     <li v-for="categoria in categorias" :key="categoria.slug" class="familia">
-      <span
-        class="familia__cor"
-        :style="{ background: corDaCategoria(categoria.slug) }"
-        aria-hidden="true"
-      />
-      <h2 class="familia__nome">{{ categoria.nome }}</h2>
+      <RouterLink
+        class="familia__link"
+        :to="{ name: 'catalogo', query: { categoria: categoria.slug } }"
+      >
+        <span
+          class="familia__cor"
+          :style="{ background: corDaCategoria(categoria.slug) }"
+          aria-hidden="true"
+        />
+        <h2 class="familia__nome">{{ categoria.nome }}</h2>
+      </RouterLink>
+
       <ul class="familia__subtipos">
-        <li v-for="subtipo in categoria.subtipos" :key="subtipo.slug">{{ subtipo.nome }}</li>
+        <li v-for="subtipo in categoria.subtipos" :key="subtipo.slug">
+          <RouterLink
+            class="familia__subtipo"
+            :to="{
+              name: 'catalogo',
+              query: { categoria: categoria.slug, subtipo: subtipo.slug },
+            }"
+          >
+            {{ subtipo.nome }}
+          </RouterLink>
+        </li>
       </ul>
     </li>
   </ul>
@@ -80,6 +97,11 @@ const categorias = computed(() => agruparPorCategoria(dados.value ?? []))
   padding: 0;
 }
 
+.familia__link {
+  display: block;
+  text-decoration: none;
+}
+
 .familia__cor {
   display: block;
   aspect-ratio: 3 / 4;
@@ -92,12 +114,26 @@ const categorias = computed(() => agruparPorCategoria(dados.value ?? []))
   font-weight: 700;
 }
 
+.familia__link:hover .familia__nome {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .familia__subtipos {
   margin-top: var(--e2);
   list-style: none;
   padding: 0;
   font-size: var(--texto-sm);
+}
+
+.familia__subtipo {
   color: var(--tinta-media);
+  text-decoration: none;
+}
+
+.familia__subtipo:hover {
+  color: var(--tinta);
+  text-decoration: underline;
 }
 
 @media (max-width: 30rem) {

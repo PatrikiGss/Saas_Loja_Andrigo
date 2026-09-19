@@ -45,6 +45,16 @@ export const useSessao = defineStore('sessao', () => {
     usuario.value = null
   }
 
+  /**
+   * Guarda o perfil que o servidor acabou de devolver.
+   *
+   * Usado depois de editar a conta, para o nome no cabeçalho não ficar
+   * mostrando o que foi trocado há dois segundos.
+   */
+  function guardarPerfil(perfil: Perfil): void {
+    usuario.value = perfil
+  }
+
   async function entrar(credenciais: Credenciais): Promise<void> {
     const { access } = await autenticar(credenciais)
     token.value = access
@@ -120,5 +130,6 @@ export const useSessao = defineStore('sessao', () => {
     pronta,
     sair,
     limpar,
+    guardarPerfil,
   }
 })

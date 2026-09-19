@@ -6,14 +6,18 @@
  * access que acabou de ser usado. Então a sessão cai aqui de propósito, e a
  * tela avisa isso antes em vez de deixar a pessoa levar um 401 na cara na
  * próxima página que abrir.
+ *
+ * Vive no módulo de autenticação porque é senha, mas aparece sob o cabeçalho
+ * da conta: para quem usa, é uma das telas de 'minha conta'.
  */
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import BotaoBase from '@/components/BotaoBase.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
 import { useFormulario } from '@/composables/useFormulario'
-import { useRouter } from 'vue-router'
+import NavegacaoDaConta from '@/modules/perfil/components/NavegacaoDaConta.vue'
 import AvisoDeSucesso from '../components/AvisoDeSucesso.vue'
 import PaginaDeAutenticacao from '../components/PaginaDeAutenticacao.vue'
 import { alterarSenha } from '../services/auth'
@@ -50,6 +54,8 @@ function enviar() {
 </script>
 
 <template>
+  <!-- Depois da troca a sessão já caiu, então o cabeçalho da conta sai de
+       cena junto: as outras telas dela não abririam mais. -->
   <PaginaDeAutenticacao v-if="trocada" titulo="Senha alterada">
     <AvisoDeSucesso
       titulo="Pronto"
@@ -59,51 +65,76 @@ function enviar() {
     </AvisoDeSucesso>
   </PaginaDeAutenticacao>
 
-  <PaginaDeAutenticacao
-    v-else
-    titulo="Alterar senha"
-    descricao="Ao trocar a senha, todas as sessões abertas são encerradas e você entra de novo."
-  >
-    <form class="campos" novalidate @submit.prevent="enviar">
-      <CampoTexto
-        v-model="atual"
-        rotulo="Senha atual"
-        tipo="password"
-        autocomplete="current-password"
-        obrigatorio
-        :erro="campos.senha_atual"
-      />
+  <template v-else>
+    <NavegacaoDaConta />
 
-      <CampoTexto
-        v-model="nova"
-        rotulo="Nova senha"
-        tipo="password"
-        autocomplete="new-password"
-        obrigatorio
-        dica="Pelo menos 8 caracteres, e nada de senha comum."
-        :erro="campos.nova_senha"
-      />
+    <section class="senha">
+      <h2 class="senha__titulo">Alterar senha</h2>
+      <p class="senha__aviso">
+        Ao trocar a senha, todas as sessões abertas são encerradas e você entra de novo.
+      </p>
 
-      <CampoTexto
-        v-model="confirmacao"
-        rotulo="Repita a nova senha"
-        tipo="password"
-        autocomplete="new-password"
-        obrigatorio
-        :erro="conferenciaLocal"
-      />
+      <form class="campos" novalidate @submit.prevent="enviar">
+        <CampoTexto
+          v-model="atual"
+          rotulo="Senha atual"
+          tipo="password"
+          autocomplete="current-password"
+          obrigatorio
+          :erro="campos.senha_atual"
+          :desabilitado="enviando"
+        />
 
-      <MensagemDeErro v-if="erro" :erro="erro" sem-repetir />
+        <CampoTexto
+          v-model="nova"
+          rotulo="Nova senha"
+          tipo="password"
+          autocomplete="new-password"
+          obrigatorio
+          dica="Pelo menos 8 caracteres, e nada de senha comum."
+          :erro="campos.nova_senha"
+          :desabilitado="enviando"
+        />
 
-      <BotaoBase tipo="submit" :carregando="enviando" largura-total>Salvar senha</BotaoBase>
-    </form>
-  </PaginaDeAutenticacao>
+        <CampoTexto
+          v-model="confirmacao"
+          rotulo="Repita a nova senha"
+          tipo="password"
+          autocomplete="new-password"
+          obrigatorio
+          :erro="conferenciaLocal"
+          :desabilitado="enviando"
+        />
+
+        <MensagemDeErro v-if="erro" :erro="erro" sem-repetir />
+
+        <div>
+          <BotaoBase tipo="submit" :carregando="enviando">Salvar senha</BotaoBase>
+        </div>
+      </form>
+    </section>
+  </template>
 </template>
 
 <style scoped>
+.senha {
+  max-width: 26rem;
+}
+
+.senha__titulo {
+  font-size: var(--texto-lg);
+}
+
+.senha__aviso {
+  margin-top: var(--e2);
+  font-size: var(--texto-sm);
+  color: var(--tinta-media);
+}
+
 .campos {
   display: flex;
   flex-direction: column;
   gap: var(--e4);
+  margin-top: var(--e5);
 }
 </style>

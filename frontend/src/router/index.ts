@@ -30,6 +30,42 @@ const rotas: RouteRecordRaw[] = [
     meta: { titulo: 'Loja' },
   },
   {
+    path: '/catalogo',
+    name: 'catalogo',
+    component: () => import('@/modules/loja/views/CatalogoView.vue'),
+    meta: { titulo: 'Catálogo' },
+  },
+  {
+    path: '/produto/:id',
+    name: 'produto',
+    component: () => import('@/modules/loja/views/ProdutoView.vue'),
+    meta: { titulo: 'Produto' },
+  },
+  {
+    path: '/carrinho',
+    name: 'carrinho',
+    component: () => import('@/modules/carrinho/views/CarrinhoView.vue'),
+    meta: { titulo: 'Carrinho', exigeAutenticacao: true },
+  },
+  {
+    path: '/pedidos',
+    name: 'pedidos',
+    component: () => import('@/modules/pedidos/views/PedidosView.vue'),
+    meta: { titulo: 'Meus pedidos', exigeAutenticacao: true },
+  },
+  {
+    path: '/pedidos/:numero',
+    name: 'pedido',
+    component: () => import('@/modules/pedidos/views/PedidoView.vue'),
+    meta: { titulo: 'Pedido', exigeAutenticacao: true },
+  },
+  {
+    path: '/checkout',
+    name: 'checkout',
+    component: () => import('@/modules/checkout/views/CheckoutView.vue'),
+    meta: { titulo: 'Fechar pedido', exigeAutenticacao: true },
+  },
+  {
     path: '/entrar',
     name: 'entrar',
     component: () => import('@/modules/auth/views/LoginView.vue'),
@@ -60,6 +96,18 @@ const rotas: RouteRecordRaw[] = [
     name: 'redefinir-senha',
     component: () => import('@/modules/auth/views/RedefinirSenhaView.vue'),
     meta: { titulo: 'Nova senha' },
+  },
+  {
+    path: '/conta',
+    name: 'conta',
+    component: () => import('@/modules/perfil/views/PerfilView.vue'),
+    meta: { titulo: 'Minha conta', exigeAutenticacao: true },
+  },
+  {
+    path: '/conta/enderecos',
+    name: 'conta-enderecos',
+    component: () => import('@/modules/perfil/views/EnderecosView.vue'),
+    meta: { titulo: 'Meus endereços', exigeAutenticacao: true },
   },
   {
     path: '/conta/senha',
