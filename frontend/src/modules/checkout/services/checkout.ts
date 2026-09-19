@@ -6,8 +6,9 @@
  * total são recalculados no servidor a partir disso — nenhum valor de dinheiro
  * sai desta máquina.
  */
+import { listaDe, objetoCom } from '@/services/conferencia'
 import { http } from '@/services/http'
-import type { Pedido, ServicoFrete } from '@/modules/pedidos/types'
+import { CAMPOS_DO_PEDIDO, type Pedido, type ServicoFrete } from '@/modules/pedidos/types'
 import type { OpcaoFrete } from '../types'
 
 /**
@@ -18,7 +19,9 @@ import type { OpcaoFrete } from '../types'
  */
 export async function cotarFrete(endereco: number): Promise<OpcaoFrete[]> {
   const { data } = await http.post<OpcaoFrete[]>('/frete/cotacao/', { endereco })
-  return data
+  // `servico` é o que vai no fechamento; `preco` e `prazo_em_dias` são o que
+  // a pessoa lê para escolher.
+  return listaDe<OpcaoFrete>(data, ['servico', 'nome', 'preco', 'prazo_em_dias'])
 }
 
 /**
@@ -29,5 +32,5 @@ export async function cotarFrete(endereco: number): Promise<OpcaoFrete[]> {
  */
 export async function fecharPedido(endereco: number, servico: ServicoFrete): Promise<Pedido> {
   const { data } = await http.post<Pedido>('/checkout/', { endereco, servico })
-  return data
+  return objetoCom<Pedido>(data, CAMPOS_DO_PEDIDO)
 }

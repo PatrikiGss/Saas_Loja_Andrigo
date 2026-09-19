@@ -16,9 +16,22 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: 'deps'
+
+    ignore:
+      # TypeScript 7 é a reescrita nativa do compilador, e ela reorganizou o
+      # pacote: `typescript/lib/tsc` saiu do mapa de `exports`. O vue-tsc
+      # resolve exatamente esse caminho para rodar, então ele quebra na
+      # partida — e como o peer que ele declara é `>=5.0.0`, o npm instala sem
+      # avisar e a falha só aparece no CI.
+      #
+      # Tirar esta regra quando o vue-tsc publicar suporte a TypeScript 7.
+      # Conferido em 19/09/2026 com vue-tsc 3.3.11, a última disponível.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+
     groups:
-      # Vite, Vitest e vue-tsc sobem juntos: atualizar um sem os outros
-      # costuma quebrar a compatibilidade entre eles.
+      # Vite, Vitest, vue-tsc e TypeScript sobem juntos: atualizar um sem os
+      # outros costuma quebrar a compatibilidade entre eles.
       ferramentas:
         patterns:
           - 'vite'
@@ -26,6 +39,7 @@ updates:
           - '@vitest/*'
           - '@vitejs/*'
           - 'vue-tsc'
+          - 'typescript'
 
   - package-ecosystem: github-actions
     directory: /

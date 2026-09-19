@@ -30,12 +30,10 @@ export default defineConfig({
       // Fora da conta só o que não tem comportamento: declaração de tipo e a
       // partida da aplicação.
       exclude: ['src/**/*.spec.ts', 'src/**/types.ts', 'src/main.ts', 'src/env.d.ts'],
-      // Os limites são o que a suíte alcança hoje, e servem para impedir
-      // regressão — não são meta. A lacuna conhecida são as views: serviços,
-      // stores, composables e componentes reutilizáveis estão cobertos; as
-      // telas que só montam esses pedaços, em boa parte, não. Subir isto
-      // significa escrever teste de view, não afrouxar o `exclude`.
-      thresholds: { lines: 60, functions: 48, branches: 50, statements: 60 },
+      // Os limites ficam um pouco abaixo do que a suíte alcança, para impedir
+      // regressão sem quebrar o CI a cada linha nova. Subir isto significa
+      // escrever teste, não afrouxar o `exclude`.
+      thresholds: { lines: 96, functions: 93, branches: 91, statements: 96 },
     },
   },
 })

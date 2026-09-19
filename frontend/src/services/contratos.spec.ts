@@ -26,10 +26,42 @@ const put = vi.mocked(http.put)
 const patch = vi.mocked(http.patch)
 const remover = vi.mocked(http.delete)
 
+/**
+ * Respostas com a forma que a conferência exige.
+ *
+ * Os serviços agora recusam resposta fora do formato, então o dublê precisa
+ * devolver algo com a cara do que a API devolve — o que é bom: um dublê vazio
+ * demais escondia o que a aplicação de fato pressupõe.
+ */
+const PEDIDO = {
+  numero: 'PED-1',
+  status: 'aguardando_pagamento',
+  status_pagamento: 'pendente',
+  itens: [],
+  entrega: {},
+  subtotal: '10.00',
+  frete: '19.90',
+  total: '29.90',
+}
+
+const PRODUTO = {
+  id: 'uuid-1',
+  sku: 'SKU-1',
+  nome: 'Produto',
+  preco: '49.90',
+  categoria: 'essencia',
+  em_estoque: true,
+}
+
+const ITEM_DE_CARRINHO = { id: 1, produto: PRODUTO, quantidade: 1, subtotal: '49.90' }
+
+function paginaVazia() {
+  return { data: { count: 0, next: null, previous: null, results: [] } }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
-  const vazio = { data: { count: 0, next: null, previous: null, results: [] } }
-  get.mockResolvedValue(vazio as never)
+  get.mockResolvedValue(paginaVazia() as never)
   post.mockResolvedValue({ data: {} } as never)
   put.mockResolvedValue({ data: {} } as never)
   patch.mockResolvedValue({ data: {} } as never)
@@ -39,6 +71,7 @@ beforeEach(() => {
 describe('autenticação', () => {
   it('bate nas rotas de /api/auth/ e desliga a renovação onde 401 é resposta', async () => {
     const auth = await import('@/modules/auth/services/auth')
+    post.mockResolvedValue({ data: { access: 'token' } } as never)
 
     await auth.autenticar({ email: 'a@b.c', password: 'x' })
     expect(post).toHaveBeenCalledWith(
@@ -88,7 +121,7 @@ describe('autenticação', () => {
       nova_senha: 'nova',
     })
 
-    get.mockResolvedValue({ data: {} } as never)
+    get.mockResolvedValue({ data: { email: 'a@b.c', nivel: 'usuario' } } as never)
     await auth.buscarPerfil()
     expect(get).toHaveBeenCalledWith('/perfil/')
   })
@@ -103,7 +136,7 @@ describe('catálogo', () => {
       params: { categoria: 'essencia', page: '2' },
     })
 
-    get.mockResolvedValue({ data: {} } as never)
+    get.mockResolvedValue({ data: PRODUTO } as never)
     await catalogo.buscarProduto('uuid-1')
     expect(get).toHaveBeenCalledWith('/produtos/uuid-1/')
   })
@@ -125,9 +158,11 @@ describe('carrinho', () => {
     await carrinho.buscarCarrinho()
     expect(get).toHaveBeenCalledWith('/carrinho/')
 
+    post.mockResolvedValue({ data: ITEM_DE_CARRINHO } as never)
     await carrinho.adicionarItem('uuid-1', 2)
     expect(post).toHaveBeenCalledWith('/carrinho/itens/', { produto: 'uuid-1', quantidade: 2 })
 
+    patch.mockResolvedValue({ data: ITEM_DE_CARRINHO } as never)
     await carrinho.alterarQuantidade(7, 3)
     expect(patch).toHaveBeenCalledWith('/carrinho/itens/7/', { quantidade: 3 })
 
@@ -180,7 +215,7 @@ describe('checkout', () => {
     await checkout.cotarFrete(3)
     expect(post).toHaveBeenCalledWith('/frete/cotacao/', { endereco: 3 })
 
-    post.mockResolvedValue({ data: {} } as never)
+    post.mockResolvedValue({ data: PEDIDO } as never)
     await checkout.fecharPedido(3, 'expresso')
     expect(post).toHaveBeenCalledWith('/checkout/', { endereco: 3, servico: 'expresso' })
   })
@@ -190,7 +225,7 @@ describe('perfil', () => {
   it('lê e atualiza sem id na URL', async () => {
     const perfil = await import('@/modules/perfil/services/perfil')
 
-    get.mockResolvedValue({ data: {} } as never)
+    get.mockResolvedValue({ data: { email: 'a@b.c', nivel: 'usuario' } } as never)
     await perfil.buscarPerfil()
     expect(get).toHaveBeenCalledWith('/perfil/')
 
@@ -206,7 +241,7 @@ describe('gestão', () => {
     await produtos.listarProdutos({ busca: 'menta' })
     expect(get).toHaveBeenCalledWith('/produtos/', { params: { search: 'menta' } })
 
-    get.mockResolvedValue({ data: {} } as never)
+    get.mockResolvedValue({ data: PRODUTO } as never)
     await produtos.buscarProduto('uuid-1')
     expect(get).toHaveBeenCalledWith('/produtos/uuid-1/')
 
@@ -258,7 +293,7 @@ describe('gestão', () => {
   it('move o pedido pelo número, não por id', async () => {
     const pedidos = await import('@/modules/admin/services/pedidos')
 
-    post.mockResolvedValue({ data: {} } as never)
+    post.mockResolvedValue({ data: PEDIDO } as never)
     await pedidos.alterarStatus('PED-20260919-ABCDEF', 'pago')
 
     expect(post).toHaveBeenCalledWith('/pedidos/PED-20260919-ABCDEF/status/', { status: 'pago' })

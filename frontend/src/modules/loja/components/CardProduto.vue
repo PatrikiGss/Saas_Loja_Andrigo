@@ -24,7 +24,9 @@ defineProps<{ produto: Produto }>()
         :esgotado="!produto.em_estoque"
       />
 
-      <h3 class="card__nome">{{ produto.nome }}</h3>
+      <!-- `h2` e não `h3`: o card vem logo abaixo do `h1` da página, e pular
+           um nível deixa a leitura por cabeçalhos com um degrau vazio. -->
+      <h2 class="card__nome">{{ produto.nome }}</h2>
     </RouterLink>
 
     <p class="card__marca">{{ produto.marca }}</p>

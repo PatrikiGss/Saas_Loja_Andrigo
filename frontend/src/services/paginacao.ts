@@ -6,20 +6,25 @@
  * exemplo — pode chegar cortada. `coletarTudo` percorre as páginas seguindo o
  * `next` que a própria API devolve.
  */
+import { paginaDe } from './conferencia'
 import { http } from './http'
 import type { Paginado } from '@/types/api'
 
 /** Teto de páginas, para que uma resposta inesperada não vire laço infinito. */
 const PAGINAS_MAXIMAS = 25
 
-export async function coletarTudo<T>(caminho: string): Promise<T[]> {
+export async function coletarTudo<T>(
+  caminho: string,
+  chaves: ReadonlyArray<keyof T & string> = [],
+): Promise<T[]> {
   const itens: T[] = []
   let proximo: string | null = caminho
 
   for (let pagina = 0; proximo !== null && pagina < PAGINAS_MAXIMAS; pagina += 1) {
-    const { data }: { data: Paginado<T> } = await http.get<Paginado<T>>(proximo)
-    itens.push(...data.results)
-    proximo = data.next
+    const resposta: { data: Paginado<T> } = await http.get<Paginado<T>>(proximo)
+    const conferida = paginaDe<T>(resposta.data, chaves)
+    itens.push(...conferida.results)
+    proximo = conferida.next
   }
 
   return itens

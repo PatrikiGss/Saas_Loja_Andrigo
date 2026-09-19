@@ -9,6 +9,17 @@ vi.mock('@/services/http', () => ({
 
 const get = vi.mocked(http.get)
 
+const PEDIDO = {
+  numero: 'PED-1',
+  status: 'aguardando_pagamento',
+  status_pagamento: 'pendente',
+  itens: [],
+  entrega: {},
+  subtotal: '10.00',
+  frete: '19.90',
+  total: '29.90',
+}
+
 beforeEach(() => {
   get.mockReset()
   get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } } as never)
@@ -32,6 +43,7 @@ describe('buscarPedido', () => {
   it('usa o número como chave, e não um id', async () => {
     // O `lookup_field` do ViewSet é `numero`; o id do pedido é UUID e não
     // aparece na API.
+    get.mockResolvedValue({ data: PEDIDO } as never)
     await buscarPedido('PED-20260919-4DDA1D')
 
     expect(get).toHaveBeenCalledWith('/pedidos/PED-20260919-4DDA1D/')

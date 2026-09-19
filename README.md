@@ -14,6 +14,15 @@ O backend é a autoridade: preço, estoque, frete, total do pedido e permissões
 são decididos lá. O frontend apresenta e envia dados, e nunca calcula dinheiro
 nem decide quem pode o quê.
 
+As respostas da API são conferidas quando chegam: a tipagem do TypeScript some
+na compilação, então um serializer que mude quebraria a tela no meio do
+desenho. A conferência olha a forma — se a resposta é objeto, se traz as
+chaves de que aquela tela depende, se a página tem `count` e `results` — e
+transforma o desencontro num erro comum, com a mesma faixa de aviso de sempre.
+Ela não confere tipo campo a campo, de propósito: isso exigiria reescrever os
+esquemas do backend aqui, criando uma segunda descrição para sair do ar em
+silêncio quando a primeira mudar.
+
 ## O que você precisa
 
 - **Python 3.12**
@@ -151,14 +160,15 @@ Com cobertura:
 cd frontend && npm run cobertura
 ```
 
-São 215 testes. A cobertura está em torno de 61% de linhas, e os limites
-configurados são o que a suíte alcança hoje: servem para impedir regressão,
-não são meta.
+São 416 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
+backend. O relatório falha abaixo dos limites configurados, que ficam um pouco
+abaixo do alcançado para não quebrar o CI a cada linha nova.
 
-**A lacuna conhecida são as views.** Serviços, stores, composables e
-componentes reutilizáveis estão cobertos; as telas que só montam esses pedaços
-em boa parte não estão. Subir o número significa escrever teste de view, não
-afrouxar a configuração.
+Entre eles há uma **auditoria de acessibilidade com o axe** rodando sobre as
+telas e os componentes de formulário: campo sem rótulo, botão sem nome
+acessível, cabeçalho fora de ordem e `aria-*` apontando para o nada reprovam o
+teste. A regra de contraste fica desligada porque o jsdom não pinta nada — o
+contraste da paleta foi decidido nos tokens.
 
 Tipos e build:
 

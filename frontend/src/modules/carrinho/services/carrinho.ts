@@ -5,13 +5,19 @@
  * pergunta: não existe id de carrinho na URL, então não há carrinho de outra
  * pessoa para pedir.
  */
+import { objetoCom } from '@/services/conferencia'
 import { http } from '@/services/http'
 import type { Carrinho, ItemCarrinho } from '../types'
+
+/** Mínimo de que a tela do carrinho depende para desenhar uma linha. */
+const CAMPOS_DO_ITEM = ['id', 'produto', 'quantidade', 'subtotal'] as const
 
 /** `GET /api/carrinho/` — criado no primeiro acesso, se ainda não existir. */
 export async function buscarCarrinho(): Promise<Carrinho> {
   const { data } = await http.get<Carrinho>('/carrinho/')
-  return data
+  // `total` é dinheiro e vem do servidor; sem ele a tela mostraria vazio no
+  // lugar do valor a pagar.
+  return objetoCom<Carrinho>(data, ['itens', 'total'])
 }
 
 /**
@@ -23,7 +29,7 @@ export async function buscarCarrinho(): Promise<Carrinho> {
  */
 export async function adicionarItem(produto: string, quantidade: number): Promise<ItemCarrinho> {
   const { data } = await http.post<ItemCarrinho>('/carrinho/itens/', { produto, quantidade })
-  return data
+  return objetoCom<ItemCarrinho>(data, CAMPOS_DO_ITEM)
 }
 
 /**
@@ -34,7 +40,7 @@ export async function adicionarItem(produto: string, quantidade: number): Promis
  */
 export async function alterarQuantidade(item: number, quantidade: number): Promise<ItemCarrinho> {
   const { data } = await http.patch<ItemCarrinho>(`/carrinho/itens/${item}/`, { quantidade })
-  return data
+  return objetoCom<ItemCarrinho>(data, CAMPOS_DO_ITEM)
 }
 
 /** `DELETE /api/carrinho/itens/<id>/`. */

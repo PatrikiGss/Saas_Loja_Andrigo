@@ -168,6 +168,57 @@ describe('CheckoutView', () => {
     expect(tela.text()).toContain('Não há o que fechar')
   })
 
+  it('mostra a recusa do fechamento e relê o carrinho', async () => {
+    const { AxiosError, AxiosHeaders } = await import('axios')
+    const config = { headers: new AxiosHeaders() }
+    vi.mocked(servicoCheckout.fecharPedido).mockRejectedValue(
+      new AxiosError('falhou', '400', config, {}, {
+        status: 400,
+        data: { pedido: ['Há pedidos demais aguardando pagamento nesta conta.'] },
+        statusText: '',
+        headers: {},
+        config,
+      } as never),
+    )
+
+    const tela = await montar()
+    await avancarAteOResumo(tela)
+    const leiturasAntes = vi.mocked(servicoCarrinho.buscarCarrinho).mock.calls.length
+
+    await clicar(tela, 'Fechar pedido')
+
+    expect(tela.text()).toContain('Há pedidos demais aguardando pagamento')
+    // A recusa pode vir de estoque ou de produto retirado de venda.
+    expect(vi.mocked(servicoCarrinho.buscarCarrinho).mock.calls.length).toBeGreaterThan(
+      leiturasAntes,
+    )
+  })
+
+  it('deixa voltar a um passo já cumprido', async () => {
+    const tela = await montar()
+    await avancarAteOResumo(tela)
+    expect(tela.text()).toContain('Confira antes de fechar')
+
+    await clicar(tela, 'Endereço')
+
+    expect(tela.text()).toContain('Para onde entregamos?')
+  })
+
+  it('cota o frete de novo ao repetir depois de uma falha', async () => {
+    const { ErroDaApi } = await import('@/services/erros')
+    vi.mocked(servicoCheckout.cotarFrete).mockRejectedValueOnce(
+      new ErroDaApi('rede', 'Sem resposta da loja.', null, {}),
+    )
+
+    const tela = await montar()
+    await clicar(tela, 'Continuar')
+    expect(tela.text()).toContain('Sem resposta da loja')
+
+    await clicar(tela, 'Tentar de novo')
+
+    expect(tela.text()).toContain('Econômico')
+  })
+
   it('barra o fechamento quando há produto indisponível', async () => {
     vi.mocked(servicoCarrinho.buscarCarrinho).mockResolvedValue({
       itens: [

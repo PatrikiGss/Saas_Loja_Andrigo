@@ -4,10 +4,14 @@
  * Nenhum componente monta caminho de API nem nome de parâmetro: quem conhece
  * as rotas e a query da app `loja` é este arquivo.
  */
+import { objetoCom, paginaDe } from '@/services/conferencia'
 import { http } from '@/services/http'
 import { coletarTudo } from '@/services/paginacao'
 import type { Paginado } from '@/types/api'
 import type { FiltrosDoCatalogo, Produto, Subtipo } from '../types'
+
+/** Mínimo para desenhar um card: identidade, cor, nome e preço. */
+const CAMPOS_DO_PRODUTO = ['id', 'sku', 'nome', 'preco', 'categoria', 'em_estoque'] as const
 
 /**
  * `GET /api/subtipos/` — público.
@@ -16,7 +20,7 @@ import type { FiltrosDoCatalogo, Produto, Subtipo } from '../types'
  * os filtros, então percorre as páginas.
  */
 export function listarSubtipos(): Promise<Subtipo[]> {
-  return coletarTudo<Subtipo>('/subtipos/')
+  return coletarTudo<Subtipo>('/subtipos/', ['slug', 'nome', 'categoria', 'categoria_display'])
 }
 
 /**
@@ -45,11 +49,11 @@ export async function listarProdutos(
   const { data } = await http.get<Paginado<Produto>>('/produtos/', {
     params: comoQuery(filtros),
   })
-  return data
+  return paginaDe<Produto>(data, CAMPOS_DO_PRODUTO)
 }
 
 /** `GET /api/produtos/<id>/` — público. Produto inativo responde 404. */
 export async function buscarProduto(id: string): Promise<Produto> {
   const { data } = await http.get<Produto>(`/produtos/${id}/`)
-  return data
+  return objetoCom<Produto>(data, CAMPOS_DO_PRODUTO)
 }

@@ -52,6 +52,23 @@ export interface Pedido {
 }
 
 /**
+ * Mínimo de que as telas de pedido dependem.
+ *
+ * Não é o serializer inteiro: é o que precisa estar lá para a confirmação, o
+ * histórico e o acompanhamento desenharem sem inventar valor.
+ */
+export const CAMPOS_DO_PEDIDO = [
+  'numero',
+  'status',
+  'status_pagamento',
+  'itens',
+  'entrega',
+  'subtotal',
+  'frete',
+  'total',
+] as const
+
+/**
  * Texto de cada valor que o backend devolve como identificador.
  *
  * São espelhos dos `TextChoices` do Django. O `.label` deles não vem na API —

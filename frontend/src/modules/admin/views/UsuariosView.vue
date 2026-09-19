@@ -13,12 +13,21 @@ import BotaoBase from '@/components/BotaoBase.vue'
 import CarregandoIndicador from '@/components/CarregandoIndicador.vue'
 import DialogoDeConfirmacao from '@/components/DialogoDeConfirmacao.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
+import TabelaDados, { type Coluna } from '@/components/TabelaDados.vue'
 import { useRequisicao } from '@/composables/useRequisicao'
 import { useSessao } from '@/modules/auth/stores/sessao'
 import { deErro, type ErroDaApi } from '@/services/erros'
 import { dataHora } from '@/utils/formato'
 import { definirAtivo, definirNivel, listarUsuarios } from '../services/usuarios'
 import type { UsuarioAdmin } from '../types'
+
+const COLUNAS: Coluna[] = [
+  { chave: 'conta', titulo: 'Conta' },
+  { chave: 'nivel', titulo: 'Nível' },
+  { chave: 'situacao', titulo: 'Situação' },
+  { chave: 'cadastro', titulo: 'Cadastro' },
+  { chave: 'acoes' },
+]
 
 const sessao = useSessao()
 const { dados: usuarios, carregando, erro, executar } = useRequisicao(listarUsuarios)
@@ -82,58 +91,55 @@ async function confirmarNivel(): Promise<void> {
       class="recusa"
     />
 
-    <table class="tabela">
-      <caption class="apenas-leitor">Contas cadastradas</caption>
-      <thead>
-        <tr>
-          <th scope="col">Conta</th>
-          <th scope="col">Nível</th>
-          <th scope="col">Situação</th>
-          <th scope="col">Cadastro</th>
-          <th scope="col"><span class="apenas-leitor">Ações</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="usuario in usuarios ?? []" :key="usuario.id">
-          <td>
-            <span class="conta__email">{{ usuario.email }}</span>
-            <span v-if="usuario.nome || usuario.sobrenome" class="conta__nome">
-              {{ usuario.nome }} {{ usuario.sobrenome }}
-            </span>
-            <span v-if="usuario.email === sessao.usuario?.email" class="conta__voce">
-              esta é a sua conta
-            </span>
-          </td>
+    <TabelaDados
+      :colunas="COLUNAS"
+      :itens="usuarios ?? []"
+      :chave-de="(usuario) => usuario.id"
+      descricao="Contas cadastradas"
+    >
+      <template #conta="{ item }">
+        <span class="conta__email">{{ item.email }}</span>
+        <span v-if="item.nome || item.sobrenome" class="conta__nome">
+          {{ item.nome }} {{ item.sobrenome }}
+        </span>
+        <span v-if="item.email === sessao.usuario?.email" class="conta__voce">
+          esta é a sua conta
+        </span>
+      </template>
 
-          <td>{{ usuario.nivel === 'admin' ? 'Admin' : 'Cliente' }}</td>
+      <template #nivel="{ item }">
+        {{ item.nivel === 'admin' ? 'Admin' : 'Cliente' }}
+      </template>
 
-          <td>
-            <span :class="{ 'inativo': !usuario.ativo }">
-              {{ usuario.ativo ? 'Ativa' : 'Desativada' }}
-            </span>
-          </td>
+      <template #situacao="{ item }">
+        <span :class="{ inativo: !item.ativo }">
+          {{ item.ativo ? 'Ativa' : 'Desativada' }}
+        </span>
+      </template>
 
-          <td class="numerico">{{ dataHora(usuario.criado_em) }}</td>
+      <template #cadastro="{ item }">
+        <span class="numerico">{{ dataHora(item.criado_em) }}</span>
+      </template>
 
-          <td class="acoes">
-            <BotaoBase
-              variante="secundario"
-              :desabilitado="emMudanca === usuario.id"
-              @click="alternarAtivo(usuario)"
-            >
-              {{ usuario.ativo ? 'Desativar' : 'Reativar' }}
-            </BotaoBase>
-            <BotaoBase
-              variante="discreto"
-              :desabilitado="emMudanca === usuario.id"
-              @click="promovendo = usuario"
-            >
-              {{ usuario.nivel === 'admin' ? 'Rebaixar' : 'Tornar admin' }}
-            </BotaoBase>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <template #acoes="{ item }">
+        <div class="acoes">
+          <BotaoBase
+            variante="secundario"
+            :desabilitado="emMudanca === item.id"
+            @click="alternarAtivo(item)"
+          >
+            {{ item.ativo ? 'Desativar' : 'Reativar' }}
+          </BotaoBase>
+          <BotaoBase
+            variante="discreto"
+            :desabilitado="emMudanca === item.id"
+            @click="promovendo = item"
+          >
+            {{ item.nivel === 'admin' ? 'Rebaixar' : 'Tornar admin' }}
+          </BotaoBase>
+        </div>
+      </template>
+    </TabelaDados>
   </template>
 
   <DialogoDeConfirmacao
@@ -159,27 +165,6 @@ async function confirmarNivel(): Promise<void> {
 
 .recusa {
   margin-bottom: var(--e4);
-}
-
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.tabela th {
-  text-align: left;
-  padding: var(--e2) var(--e3) var(--e2) 0;
-  border-bottom: 1px solid var(--linha-forte);
-  font-size: var(--texto-xs);
-  font-weight: 700;
-  color: var(--tinta-media);
-}
-
-.tabela td {
-  padding: var(--e3) var(--e3) var(--e3) 0;
-  border-bottom: 1px solid var(--linha);
-  font-size: var(--texto-sm);
-  vertical-align: top;
 }
 
 .conta__email {
@@ -212,29 +197,5 @@ async function confirmarNivel(): Promise<void> {
   min-height: 2.25rem;
   padding: 0 var(--e3);
   font-size: var(--texto-xs);
-}
-
-@media (max-width: 52rem) {
-  .tabela,
-  .tabela tbody,
-  .tabela tr,
-  .tabela td {
-    display: block;
-    width: 100%;
-  }
-
-  .tabela thead {
-    display: none;
-  }
-
-  .tabela tr {
-    padding: var(--e4) 0;
-    border-bottom: 1px solid var(--linha);
-  }
-
-  .tabela td {
-    padding: var(--e1) 0;
-    border: 0;
-  }
 }
 </style>

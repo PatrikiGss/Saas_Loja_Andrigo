@@ -15,6 +15,7 @@ import DialogoDeConfirmacao from '@/components/DialogoDeConfirmacao.vue'
 import EstadoVazio from '@/components/EstadoVazio.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
 import PaginacaoLista from '@/components/PaginacaoLista.vue'
+import TabelaDados, { type Coluna } from '@/components/TabelaDados.vue'
 import { useFormulario } from '@/composables/useFormulario'
 import { useRequisicao } from '@/composables/useRequisicao'
 import { corDaCategoria } from '@/modules/loja/categorias'
@@ -24,6 +25,14 @@ import { listarProdutos, removerProduto } from '../services/produtos'
 import type { ProdutoGestao } from '../types'
 
 const POR_PAGINA = 20
+
+const COLUNAS: Coluna[] = [
+  { chave: 'produto', titulo: 'Produto' },
+  { chave: 'preco', titulo: 'Preço' },
+  { chave: 'estoque', titulo: 'Estoque' },
+  { chave: 'situacao', titulo: 'Situação' },
+  { chave: 'acoes' },
+]
 
 const rota = useRoute()
 const router = useRouter()
@@ -122,61 +131,54 @@ function aplicarEstoque(produto: ProdutoGestao, estoque: number): void {
       {{ total === 1 ? 'produto' : 'produtos' }}
     </p>
 
-    <table class="tabela">
-      <caption class="apenas-leitor">Produtos do catálogo</caption>
-      <thead>
-        <tr>
-          <th scope="col">Produto</th>
-          <th scope="col">Preço</th>
-          <th scope="col">Estoque</th>
-          <th scope="col">Situação</th>
-          <th scope="col"><span class="apenas-leitor">Ações</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="produto in produtos" :key="produto.id">
-          <td>
-            <span class="produto">
-              <span
-                class="produto__cor"
-                :style="{ background: corDaCategoria(produto.categoria) }"
-                aria-hidden="true"
-              />
-              <span>
-                <RouterLink
-                  class="produto__nome"
-                  :to="{ name: 'admin-produto', params: { id: produto.id } }"
-                >
-                  {{ produto.nome }}
-                </RouterLink>
-                <span class="produto__sku numerico">{{ produto.sku }}</span>
-              </span>
-            </span>
-          </td>
+    <TabelaDados
+      :colunas="COLUNAS"
+      :itens="produtos"
+      :chave-de="(produto) => produto.id"
+      descricao="Produtos do catálogo"
+    >
+      <template #produto="{ item }">
+        <span class="produto">
+          <span
+            class="produto__cor"
+            :style="{ background: corDaCategoria(item.categoria) }"
+            aria-hidden="true"
+          />
+          <span>
+            <RouterLink
+              class="produto__nome"
+              :to="{ name: 'admin-produto', params: { id: item.id } }"
+            >
+              {{ item.nome }}
+            </RouterLink>
+            <span class="produto__sku numerico">{{ item.sku }}</span>
+          </span>
+        </span>
+      </template>
 
-          <td class="numerico">{{ moeda(produto.preco) }}</td>
+      <template #preco="{ item }">
+        <span class="numerico">{{ moeda(item.preco) }}</span>
+      </template>
 
-          <td>
-            <span class="estoque numerico">{{ estoqueDe(produto) }}</span>
-            <AjusteDeEstoque
-              :id="produto.id"
-              :estoque="estoqueDe(produto)"
-              @ajustado="aplicarEstoque(produto, $event)"
-            />
-          </td>
+      <template #estoque="{ item }">
+        <span class="estoque numerico">{{ estoqueDe(item) }}</span>
+        <AjusteDeEstoque
+          :id="item.id"
+          :estoque="estoqueDe(item)"
+          @ajustado="aplicarEstoque(item, $event)"
+        />
+      </template>
 
-          <td>
-            <span class="situacao" :class="{ 'situacao--fora': !produto.ativo }">
-              {{ produto.ativo ? 'À venda' : 'Fora de venda' }}
-            </span>
-          </td>
+      <template #situacao="{ item }">
+        <span class="situacao" :class="{ 'situacao--fora': !item.ativo }">
+          {{ item.ativo ? 'À venda' : 'Fora de venda' }}
+        </span>
+      </template>
 
-          <td>
-            <BotaoBase variante="discreto" @click="paraRemover = produto">Excluir</BotaoBase>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+      <template #acoes="{ item }">
+        <BotaoBase variante="discreto" @click="paraRemover = item">Excluir</BotaoBase>
+      </template>
+    </TabelaDados>
 
     <PaginacaoLista
       :pagina="pagina"
@@ -246,27 +248,6 @@ function aplicarEstoque(produto: ProdutoGestao, estoque: number): void {
   color: var(--tinta-media);
 }
 
-.tabela {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.tabela th {
-  text-align: left;
-  padding: var(--e2) var(--e3) var(--e2) 0;
-  border-bottom: 1px solid var(--linha-forte);
-  font-size: var(--texto-xs);
-  font-weight: 700;
-  color: var(--tinta-media);
-}
-
-.tabela td {
-  padding: var(--e3) var(--e3) var(--e3) 0;
-  border-bottom: 1px solid var(--linha);
-  font-size: var(--texto-sm);
-  vertical-align: top;
-}
-
 .produto {
   display: flex;
   align-items: flex-start;
@@ -308,29 +289,5 @@ function aplicarEstoque(produto: ProdutoGestao, estoque: number): void {
 
 .situacao--fora {
   color: var(--tinta-media);
-}
-
-@media (max-width: 52rem) {
-  .tabela,
-  .tabela tbody,
-  .tabela tr,
-  .tabela td {
-    display: block;
-    width: 100%;
-  }
-
-  .tabela thead {
-    display: none;
-  }
-
-  .tabela tr {
-    padding: var(--e4) 0;
-    border-bottom: 1px solid var(--linha);
-  }
-
-  .tabela td {
-    padding: var(--e1) 0;
-    border: 0;
-  }
 }
 </style>

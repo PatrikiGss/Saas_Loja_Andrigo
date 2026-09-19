@@ -43,14 +43,18 @@ function criarRouter(): Router {
   })
 }
 
-async function montar() {
+async function montarComRouter() {
   const router = criarRouter()
   await router.push('/admin/produtos')
   await router.isReady()
 
   const tela = mount(ProdutosView, { global: { plugins: [router] } })
   await flushPromises()
-  return tela
+  return { tela, router }
+}
+
+async function montar() {
+  return (await montarComRouter()).tela
 }
 
 beforeAll(() => {
@@ -113,6 +117,57 @@ describe('ProdutosView', () => {
 
     expect(servico.removerProduto).not.toHaveBeenCalled()
     expect(tela.text()).toContain('tire de venda em vez de excluir')
+  })
+
+  it('exclui ao confirmar e recarrega a lista', async () => {
+    const tela = await montar()
+    await tela.findAll('button').find((b) => b.text().includes('Excluir'))!.trigger('click')
+
+    const confirmar = tela
+      .get('dialog')
+      .findAll('button')
+      .find((b) => b.text().includes('Excluir produto'))!
+    await confirmar.trigger('click')
+    await flushPromises()
+
+    expect(servico.removerProduto).toHaveBeenCalledWith('a')
+    expect(vi.mocked(servico.listarProdutos).mock.calls.length).toBeGreaterThan(1)
+  })
+
+  it('mostra a recusa de excluir produto com histórico', async () => {
+    // O banco protege quem já foi comprado ou está em algum carrinho.
+    const { AxiosError, AxiosHeaders } = await import('axios')
+    const config = { headers: new AxiosHeaders() }
+    vi.mocked(servico.removerProduto).mockRejectedValue(
+      new AxiosError('falhou', '409', config, {}, {
+        status: 409,
+        data: { detail: 'Produto em uso por outros registros. Desative em vez de excluir.' },
+        statusText: '',
+        headers: {},
+        config,
+      } as never),
+    )
+
+    const tela = await montar()
+    await tela.findAll('button').find((b) => b.text().includes('Excluir'))!.trigger('click')
+    await tela
+      .get('dialog')
+      .findAll('button')
+      .find((b) => b.text().includes('Excluir produto'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(tela.text()).toContain('Produto em uso por outros registros')
+  })
+
+  it('leva a busca e a página para a rota', async () => {
+    const { tela, router } = await montarComRouter()
+
+    await tela.get('input[type="search"]').setValue('menta')
+    await tela.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(router.currentRoute.value.query.busca).toBe('menta')
   })
 
   it('traz o catálogo inteiro, inclusive o que está fora de venda', async () => {

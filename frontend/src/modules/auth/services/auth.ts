@@ -5,6 +5,7 @@
  * cookie httpOnly que o backend grava, e o navegador o devolve sozinho nas
  * rotas `/api/auth/`.
  */
+import { objetoCom } from '@/services/conferencia'
 import { comoCredenciaisRecusadas } from '@/services/erros'
 import { http } from '@/services/http'
 import type {
@@ -32,7 +33,9 @@ const SEM_RENOVACAO = { semRenovacao: true } as const
 export async function autenticar(credenciais: Credenciais): Promise<Acesso> {
   try {
     const { data } = await http.post<Acesso>('/auth/login/', credenciais, SEM_RENOVACAO)
-    return data
+    // Sem `access` não há sessão: guardar `undefined` faria a aplicação achar
+    // que entrou e falhar na primeira requisição autenticada.
+    return objetoCom<Acesso>(data, ['access'])
   } catch (falha) {
     throw comoCredenciaisRecusadas(falha)
   }
@@ -41,7 +44,7 @@ export async function autenticar(credenciais: Credenciais): Promise<Acesso> {
 /** `POST /api/auth/refresh/` — lê o cookie, devolve access novo. */
 export async function renovarAcesso(): Promise<Acesso> {
   const { data } = await http.post<Acesso>('/auth/refresh/', {}, SEM_RENOVACAO)
-  return data
+  return objetoCom<Acesso>(data, ['access'])
 }
 
 /** `POST /api/auth/logout/` — derruba o refresh e apaga o cookie. */
@@ -85,5 +88,6 @@ export async function alterarSenha(senha_atual: string, nova_senha: string): Pro
 /** `GET /api/perfil/` — conta autenticada. É onde o nível de acesso aparece. */
 export async function buscarPerfil(): Promise<Perfil> {
   const { data } = await http.get<Perfil>('/perfil/')
-  return data
+  // `nivel` decide o que a interface oferece; ausente, tudo pareceria cliente.
+  return objetoCom<Perfil>(data, ['email', 'nivel'])
 }
