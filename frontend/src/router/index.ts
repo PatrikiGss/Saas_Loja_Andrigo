@@ -19,6 +19,14 @@ declare module 'vue-router' {
     exigeAutenticacao?: boolean
     /** Com sessão, não faz sentido abrir: login e cadastro. */
     apenasVisitante?: boolean
+    /**
+     * Rota da gestão: usa a moldura administrativa e exige nível admin.
+     *
+     * Serve para organizar a navegação, não para proteger nada. Quem recusa
+     * cada requisição é o backend, com `EhAdmin`, e continuaria recusando se
+     * alguém chegasse aqui de outro jeito.
+     */
+    admin?: boolean
   }
 }
 
@@ -114,6 +122,36 @@ const rotas: RouteRecordRaw[] = [
     name: 'alterar-senha',
     component: () => import('@/modules/auth/views/AlterarSenhaView.vue'),
     meta: { titulo: 'Alterar senha', exigeAutenticacao: true },
+  },
+  {
+    path: '/admin/produtos',
+    name: 'admin-produtos',
+    component: () => import('@/modules/admin/views/ProdutosView.vue'),
+    meta: { titulo: 'Produtos', exigeAutenticacao: true, admin: true },
+  },
+  {
+    path: '/admin/produtos/novo',
+    name: 'admin-produto-novo',
+    component: () => import('@/modules/admin/views/ProdutoFormView.vue'),
+    meta: { titulo: 'Cadastrar produto', exigeAutenticacao: true, admin: true },
+  },
+  {
+    path: '/admin/produtos/:id',
+    name: 'admin-produto',
+    component: () => import('@/modules/admin/views/ProdutoFormView.vue'),
+    meta: { titulo: 'Editar produto', exigeAutenticacao: true, admin: true },
+  },
+  {
+    path: '/admin/pedidos',
+    name: 'admin-pedidos',
+    component: () => import('@/modules/admin/views/PedidosView.vue'),
+    meta: { titulo: 'Pedidos', exigeAutenticacao: true, admin: true },
+  },
+  {
+    path: '/admin/usuarios',
+    name: 'admin-usuarios',
+    component: () => import('@/modules/admin/views/UsuariosView.vue'),
+    meta: { titulo: 'Usuários', exigeAutenticacao: true, admin: true },
   },
   {
     path: '/:caminho(.*)*',

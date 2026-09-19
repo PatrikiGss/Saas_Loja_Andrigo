@@ -28,6 +28,9 @@ interface ItemDeNavegacao {
 const navegacao = computed<ItemDeNavegacao[]>(() => [
   { rota: '/catalogo', texto: 'Catálogo' },
   ...(sessao.autenticado ? [{ rota: '/pedidos', texto: 'Pedidos' }] : []),
+  // Atalho para a gestão. Esconder não é proteção: o backend recusa quem não
+  // é admin de qualquer forma. Aqui é só não oferecer o que não serve.
+  ...(sessao.ehAdmin ? [{ rota: '/admin/produtos', texto: 'Gestão' }] : []),
 ])
 
 const router = useRouter()

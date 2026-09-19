@@ -40,6 +40,13 @@ export function instalarSessao(router: Router): void {
       return { name: 'entrar', query: { destino: para.fullPath } }
     }
 
+    // Quem não é admin não tem o que fazer na gestão. Isto é organização de
+    // navegação: mesmo que alguém force a rota, toda requisição de lá é
+    // recusada pelo backend.
+    if (para.meta.admin && !sessao.ehAdmin) {
+      return { name: 'inicio' }
+    }
+
     if (para.meta.apenasVisitante && sessao.autenticado) {
       return { name: 'inicio' }
     }
