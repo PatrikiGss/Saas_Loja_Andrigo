@@ -1,4 +1,4 @@
-# SaaS Loja
+# SaaS Loja do Andrigo
 
 Loja online de pods. Backend em Django e DRF, frontend em Vue, no mesmo
 repositório.
@@ -34,16 +34,10 @@ Na raiz do repositório:
 python -m venv venv
 ```
 
-Ative o ambiente. No Windows, com PowerShell:
+Ative o ambiente com PowerShell:
 
 ```bash
 venv\Scripts\Activate.ps1
-```
-
-No Linux ou macOS:
-
-```bash
-source venv/bin/activate
 ```
 
 Instale as dependências — `requirements-dev.txt` já inclui as de produção:
