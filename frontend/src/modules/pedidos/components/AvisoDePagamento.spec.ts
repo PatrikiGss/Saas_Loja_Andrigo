@@ -26,6 +26,9 @@ function pedido(status_pagamento: StatusPagamento): Pedido {
     total: '89.80',
     criado_em: '2026-09-19T00:09:00Z',
     pago_em: null,
+    cliente: 'ana@example.com',
+    proximos_status: ['pago', 'cancelado'],
+    pode_cancelar: true,
   }
 }
 

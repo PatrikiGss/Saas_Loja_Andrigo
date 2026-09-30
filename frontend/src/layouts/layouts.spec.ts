@@ -94,7 +94,14 @@ describe('LayoutLoja', () => {
     carrinho.itens = [
       {
         id: 1,
-        produto: { id: 'p', sku: 'S', nome: 'N', preco: '1.00', disponivel: true },
+        produto: {
+          id: 'p',
+          sku: 'S',
+          nome: 'N',
+          preco: '1.00',
+          categoria: 'pod_descartavel',
+          disponivel: true,
+        },
         quantidade: 3,
         subtotal: '3.00',
       },

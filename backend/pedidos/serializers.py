@@ -48,15 +48,30 @@ class ItemPedidoSerializer(serializers.ModelSerializer):
 
 
 class PedidoSerializer(serializers.ModelSerializer):
-    """Pedido do cliente. Nada aqui é gravável pela API."""
+    """Pedido. Nada aqui é gravável pela API.
+
+    `cliente` é o e-mail da conta dona, para a gestão saber de quem é o pedido;
+    o cliente só enxerga os próprios, então só vê o próprio e-mail.
+    `proximos_status` são as transições que a loja pode fazer a partir daqui,
+    e `pode_cancelar` diz se o próprio cliente ainda pode desistir. As duas
+    saem das regras do modelo, para a tela oferecer só o que o servidor aceita.
+    """
 
     itens = ItemPedidoSerializer(many=True, read_only=True)
     entrega = EnderecoDeEntregaSerializer(read_only=True)
+    cliente = serializers.EmailField(source='usuario.email', read_only=True)
+    proximos_status = serializers.ListField(
+        child=serializers.ChoiceField(choices=StatusPedido.choices), read_only=True
+    )
+    pode_cancelar = serializers.BooleanField(
+        source='pode_ser_cancelado_pelo_cliente', read_only=True
+    )
 
     class Meta:
         model = Pedido
         fields = (
             'numero',
+            'cliente',
             'status',
             'status_pagamento',
             'itens',
@@ -68,6 +83,8 @@ class PedidoSerializer(serializers.ModelSerializer):
             'total',
             'criado_em',
             'pago_em',
+            'proximos_status',
+            'pode_cancelar',
         )
         read_only_fields = fields
 

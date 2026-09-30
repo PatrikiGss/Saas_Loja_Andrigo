@@ -10,18 +10,21 @@ const SUBTIPOS: Subtipo[] = [
     nome: 'Nic salt',
     categoria: 'essencia',
     categoria_display: 'Essência',
+    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
   },
   {
     slug: 'essencia-freebase',
     nome: 'Freebase',
     categoria: 'essencia',
     categoria_display: 'Essência',
+    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
   },
   {
     slug: 'descartavel-box',
     nome: 'Box',
     categoria: 'pod_descartavel',
     categoria_display: 'Pod descartável',
+    especificacoes: ['puffs', 'nicotina_mg_ml'],
   },
 ]
 

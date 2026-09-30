@@ -16,6 +16,7 @@ function item(id: number, quantidade: number, disponivel = true): ItemCarrinho {
       sku: `SKU-${id}`,
       nome: `Produto ${id}`,
       preco: '10.00',
+      categoria: 'pod_descartavel',
       disponivel,
     },
     quantidade,

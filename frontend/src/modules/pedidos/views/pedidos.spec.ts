@@ -1,7 +1,7 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
@@ -43,6 +43,9 @@ function pedido(numero: string, status: StatusPedido = 'aguardando_pagamento'): 
     total: '135.62',
     criado_em: '2026-09-19T02:07:30Z',
     pago_em: null,
+    cliente: 'ana@example.com',
+    proximos_status: status === 'aguardando_pagamento' ? ['pago', 'cancelado'] : [],
+    pode_cancelar: status === 'aguardando_pagamento',
   }
 }
 
@@ -90,8 +93,34 @@ function erro404(): AxiosError {
   } as AxiosResponse)
 }
 
+function erro400(campos: Record<string, string[]>): AxiosError {
+  const config = { headers: new AxiosHeaders() }
+  return new AxiosError('falhou', '400', config, {}, {
+    status: 400,
+    data: campos,
+    statusText: '',
+    headers: {},
+    config,
+  } as AxiosResponse)
+}
+
+function botoes(raiz: VueWrapper | Omit<DOMWrapper<Element>, 'exists'>, texto: string) {
+  return raiz.findAll('button').filter((b) => b.text() === texto)
+}
+
+// O jsdom não implementa showModal/close do <dialog>.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.open = true
+  }
+  HTMLDialogElement.prototype.close = function close() {
+    this.open = false
+  }
+})
+
 beforeEach(() => {
   setActivePinia(createPinia())
+  vi.mocked(servico.cancelarPedido).mockReset().mockResolvedValue(pedido('PED-1', 'cancelado'))
   vi.mocked(servico.listarPedidos)
     .mockReset()
     .mockResolvedValue({ count: 1, next: null, previous: null, results: [pedido('PED-1')] })
@@ -243,5 +272,47 @@ describe('PedidoView', () => {
     await flushPromises()
 
     expect(vi.mocked(servico.buscarPedido).mock.calls.length).toBeGreaterThan(antes)
+  })
+
+  it('não oferece cancelar quando o servidor diz que não pode', async () => {
+    vi.mocked(servico.buscarPedido).mockResolvedValue(pedido('PED-1', 'pago'))
+
+    const { tela } = await montarDetalhe()
+
+    // O único que sobra é o de confirmação, dentro do diálogo fechado.
+    expect(botoes(tela, 'Cancelar pedido')).toHaveLength(1)
+    expect(botoes(tela.get('dialog'), 'Cancelar pedido')).toHaveLength(1)
+  })
+
+  it('cancela só depois de confirmar, e mostra o pedido cancelado', async () => {
+    const { tela } = await montarDetalhe()
+
+    await botoes(tela, 'Cancelar pedido')[0].trigger('click')
+    expect(servico.cancelarPedido).not.toHaveBeenCalled()
+
+    // No diálogo, o botão de desistir não diz "Cancelar": ao lado de
+    // "Cancelar pedido", os dois pareceriam a mesma ação.
+    const dialogo = tela.get('dialog')
+    expect(botoes(dialogo, 'Manter pedido')).toHaveLength(1)
+    await botoes(dialogo, 'Cancelar pedido')[0].trigger('click')
+    await flushPromises()
+
+    expect(servico.cancelarPedido).toHaveBeenCalledWith('PED-1')
+    expect(tela.text()).toContain('não segue para entrega')
+    expect(botoes(tela, 'Cancelar pedido')).toHaveLength(1)
+  })
+
+  it('mostra a recusa do servidor quando o pedido foi pago no meio do caminho', async () => {
+    vi.mocked(servico.cancelarPedido).mockRejectedValue(
+      erro400({ status: ['Este pedido não pode mais ser cancelado.'] }),
+    )
+    const { tela } = await montarDetalhe()
+
+    await botoes(tela, 'Cancelar pedido')[0].trigger('click')
+    await botoes(tela.get('dialog'), 'Cancelar pedido')[0].trigger('click')
+    await flushPromises()
+
+    expect(tela.get('[role="alert"]').text()).toContain('Este pedido não pode mais ser cancelado.')
+    expect(tela.get('dialog').attributes('open')).toBeUndefined()
   })
 })

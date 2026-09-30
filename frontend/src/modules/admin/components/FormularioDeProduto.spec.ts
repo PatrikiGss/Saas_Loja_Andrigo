@@ -11,12 +11,14 @@ const SUBTIPOS: Subtipo[] = [
     nome: 'Box',
     categoria: 'pod_descartavel',
     categoria_display: 'Pod descartável',
+    especificacoes: ['puffs', 'nicotina_mg_ml'],
   },
   {
     slug: 'essencia-nic-salt',
     nome: 'Nic salt',
     categoria: 'essencia',
     categoria_display: 'Essência',
+    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
   },
 ]
 
@@ -125,6 +127,54 @@ describe('FormularioDeProduto', () => {
     expect(dados.puffs).toBe(5000)
     expect(dados.volume_ml).toBe('30.00')
     expect(dados.nicotina_mg_ml).toBe('35.0')
+  })
+
+  it('mostra só as especificações que valem para o subtipo, e como obrigatórias', async () => {
+    const tela = montar()
+
+    await tela.get('select').setValue('essencia-nic-salt')
+
+    expect(campoDe(tela, 'Puffs')).toBeUndefined()
+    expect(campoDe(tela, 'Volume').get('input').attributes('required')).toBeDefined()
+    expect(campoDe(tela, 'Nicotina').get('input').attributes('required')).toBeDefined()
+  })
+
+  it('manda nulo na especificação que deixou de valer, mesmo com algo digitado', async () => {
+    const tela = montar()
+
+    await preencher(tela, 'Puffs', '5000')
+    await preencher(tela, 'Volume', '30.00')
+    await tela.get('select').setValue('essencia-nic-salt')
+    await tela.get('form').trigger('submit')
+
+    expect(enviado(tela).puffs).toBeNull()
+    expect(enviado(tela).volume_ml).toBe('30.00')
+  })
+
+  it('esconde o bloco na categoria que não tem especificação', async () => {
+    const vape: Subtipo = {
+      slug: 'vape-kit',
+      nome: 'Kit',
+      categoria: 'vape',
+      categoria_display: 'Vape',
+      especificacoes: [],
+    }
+    const tela = montar({ subtipos: [...SUBTIPOS, vape] })
+
+    await tela.get('select').setValue('vape-kit')
+
+    expect(tela.find('fieldset').exists()).toBe(false)
+  })
+
+  it('com subtipo fora da lista, mostra as três e não apaga o que o produto tem', async () => {
+    // Anular às cegas apagaria as especificações de um produto em edição.
+    const tela = montar({ valorInicial: { ...PRODUTO, subtipo: 'subtipo-que-sumiu' } })
+
+    expect(campoDe(tela, 'Volume')).toBeDefined()
+    await tela.get('form').trigger('submit')
+
+    expect(enviado(tela).puffs).toBe(600)
+    expect(enviado(tela).nicotina_mg_ml).toBe('50.0')
   })
 
   it('não oferece campo de estoque: ele só muda pelo ajuste', () => {

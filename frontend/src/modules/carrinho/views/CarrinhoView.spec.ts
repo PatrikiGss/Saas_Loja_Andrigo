@@ -15,7 +15,14 @@ vi.mock('../services/carrinho')
 function item(id: number, nome: string, disponivel = true): ItemCarrinho {
   return {
     id,
-    produto: { id: `p${id}`, sku: `SKU-${id}`, nome, preco: '49.90', disponivel },
+    produto: {
+      id: `p${id}`,
+      sku: `SKU-${id}`,
+      nome,
+      preco: '49.90',
+      categoria: 'pod_descartavel',
+      disponivel,
+    },
     quantidade: 2,
     subtotal: '99.80',
   }

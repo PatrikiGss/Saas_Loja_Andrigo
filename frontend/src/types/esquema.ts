@@ -410,6 +410,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/pedidos/{numero}/cancelar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Cancela o próprio pedido enquanto ele espera pagamento.
+         *
+         *     A consulta é a da própria conta mesmo para admin: pedido de outra
+         *     pessoa não existe aqui, e a resposta é 404. A loja cancela pelo fluxo
+         *     de status, que tem trilha de auditoria.
+         */
+        post: operations["pedidos_cancelar_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/pedidos/{numero}/status/": {
         parameters: {
             query?: never;
@@ -787,6 +810,13 @@ export interface components {
             cidade: string;
             uf: components["schemas"]["UFEnum"];
         };
+        /**
+         * @description * `puffs` - puffs
+         *     * `volume_ml` - volume_ml
+         *     * `nicotina_mg_ml` - nicotina_mg_ml
+         * @enum {string}
+         */
+        EspecificacaoEnum: "puffs" | "volume_ml" | "nicotina_mg_ml";
         EstoqueAjustado: {
             estoque: number;
         };
@@ -965,9 +995,19 @@ export interface components {
         PatchedUsuarioAdminRequest: {
             ativo?: boolean;
         };
-        /** @description Pedido do cliente. Nada aqui é gravável pela API. */
+        /**
+         * @description Pedido. Nada aqui é gravável pela API.
+         *
+         *     `cliente` é o e-mail da conta dona, para a gestão saber de quem é o pedido;
+         *     o cliente só enxerga os próprios, então só vê o próprio e-mail.
+         *     `proximos_status` são as transições que a loja pode fazer a partir daqui,
+         *     e `pode_cancelar` diz se o próprio cliente ainda pode desistir. As duas
+         *     saem das regras do modelo, para a tela oferecer só o que o servidor aceita.
+         */
         Pedido: {
             readonly numero: string;
+            /** Format: email */
+            readonly cliente: string;
             readonly status: components["schemas"]["StatusPedidoEnum"];
             readonly status_pagamento: components["schemas"]["StatusPagamentoEnum"];
             readonly itens: components["schemas"]["ItemPedido"][];
@@ -984,6 +1024,8 @@ export interface components {
             readonly criado_em: string;
             /** Format: date-time */
             readonly pago_em: string | null;
+            readonly proximos_status: components["schemas"]["StatusPedidoEnum"][];
+            readonly pode_cancelar: boolean;
         };
         /**
          * @description Perfil da própria conta.
@@ -1087,7 +1129,7 @@ export interface components {
          * @description O que o front precisa mostrar do produto dentro do carrinho.
          *
          *     `disponivel` resume o estado atual sem expor o estoque, que não é público
-         *     no catálogo.
+         *     no catálogo. `categoria` dá a cor do produto, como no catálogo.
          */
         ProdutoNoCarrinho: {
             /** Format: uuid */
@@ -1096,6 +1138,7 @@ export interface components {
             nome: string;
             /** Format: decimal */
             preco: string;
+            readonly categoria: components["schemas"]["CategoriaEnum"];
             readonly disponivel: boolean;
         };
         /** @description Alteração do item: a quantidade é o único campo do cliente. */
@@ -1141,12 +1184,20 @@ export interface components {
          * @enum {string}
          */
         StatusPedidoEnum: "aguardando_pagamento" | "pago" | "em_preparacao" | "enviado" | "entregue" | "cancelado";
-        /** @description Subtipos do catálogo, usados como filtro. */
+        /**
+         * @description Subtipos do catálogo, usados como filtro e no cadastro de produto.
+         *
+         *     `especificacoes` diz quais campos de especificação valem para a categoria
+         *     do subtipo — e, valendo, são obrigatórios. Sai da mesma tabela que o
+         *     `clean()` do produto usa, então o formulário oferece exatamente o que o
+         *     servidor vai aceitar.
+         */
         Subtipo: {
             readonly slug: string;
             readonly nome: string;
             readonly categoria: components["schemas"]["CategoriaEnum"];
             readonly categoria_display: string;
+            readonly especificacoes: components["schemas"]["EspecificacaoEnum"][];
         };
         /**
          * @description * `AC` - Acre
@@ -1798,6 +1849,27 @@ export interface operations {
         };
     };
     pedidos_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                numero: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pedido"];
+                };
+            };
+        };
+    };
+    pedidos_cancelar_create: {
         parameters: {
             query?: never;
             header?: never;

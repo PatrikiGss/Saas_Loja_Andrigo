@@ -23,6 +23,7 @@ import * as servicoCarrinho from '@/modules/carrinho/services/carrinho'
 import * as servicoCatalogo from '@/modules/loja/services/catalogo'
 import CatalogoView from '@/modules/loja/views/CatalogoView.vue'
 import ProdutoView from '@/modules/loja/views/ProdutoView.vue'
+import type { Subtipo } from '@/modules/loja/types'
 import * as servicoEnderecos from '@/modules/enderecos/services/enderecos'
 import type { Endereco } from '@/modules/enderecos/types'
 import EnderecosView from '@/modules/perfil/views/EnderecosView.vue'
@@ -98,12 +99,13 @@ const PRODUTO = {
   nicotina_mg_ml: '35.0',
 }
 
-const SUBTIPOS = [
+const SUBTIPOS: Subtipo[] = [
   {
     slug: 'essencia-nic-salt',
     nome: 'Nic salt',
-    categoria: 'essencia' as const,
+    categoria: 'essencia',
     categoria_display: 'Essência',
+    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
   },
 ]
 
@@ -142,7 +144,14 @@ beforeEach(() => {
     itens: [
       {
         id: 1,
-        produto: { id: 'p1', sku: 'S1', nome: 'Pod de menta', preco: '49.90', disponivel: true },
+        produto: {
+          id: 'p1',
+          sku: 'S1',
+          nome: 'Pod de menta',
+          preco: '49.90',
+          categoria: 'pod_descartavel',
+          disponivel: true,
+        },
         quantidade: 2,
         subtotal: '99.80',
       },

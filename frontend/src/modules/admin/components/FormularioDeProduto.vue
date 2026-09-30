@@ -2,21 +2,24 @@
 /**
  * Cadastro e edição de produto.
  *
- * As três especificações aparecem sempre, e não só nas categorias em que se
- * aplicam. É escolha deliberada: quais valem em cada categoria é regra do
- * backend (`ESPECIFICACOES_POR_CATEGORIA`), não existe endpoint que a
- * publique, e copiá-la para cá criaria uma segunda verdade que sai do ar em
- * silêncio quando a primeira mudar. Quando não se aplica, o servidor recusa
- * com 'Não se aplica a esta categoria.' no próprio campo.
+ * As especificações que aparecem são as que o subtipo escolhido diz que
+ * valem (`especificacoes`, publicado pelo backend a partir da mesma regra que
+ * o `clean()` do produto usa). As que não valem vão como nulo, mesmo que algo
+ * tenha sido digitado nelas antes de trocar o subtipo.
+ *
+ * Subtipo fora da lista — a lista não carregou, ou o produto aponta para um
+ * que sumiu — volta a mostrar as três e mandar o que estiver nelas: esconder
+ * e anular às cegas apagaria as especificações de um produto em edição. Aí
+ * quem recusa o que não cabe é o servidor, no próprio campo.
  *
  * `estoque` não está aqui: ele só muda pelo endpoint de ajuste.
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 import BotaoBase from '@/components/BotaoBase.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import type { CamposComErro } from '@/services/erros'
-import type { Subtipo } from '@/modules/loja/types'
+import type { Especificacao, Subtipo } from '@/modules/loja/types'
 import type { DadosDeProduto, ProdutoGestao } from '../types'
 
 const props = withDefaults(
@@ -46,11 +49,31 @@ const dados = ref({
   nicotina_mg_ml: props.valorInicial?.nicotina_mg_ml ?? '',
 })
 
+/**
+ * O que vale para o subtipo escolhido, ou nada quando não dá para saber —
+ * nenhum escolhido ainda, ou um que não está na lista.
+ */
+const especificacoesDoSubtipo = computed<ReadonlySet<Especificacao> | null>(() => {
+  const escolhido = props.subtipos.find((item) => item.slug === dados.value.subtipo)
+  return escolhido ? new Set(escolhido.especificacoes) : null
+})
+
+/** Sem saber o que vale, mostra todas: esconder poderia apagar dado. */
+function mostra(campo: Especificacao): boolean {
+  return especificacoesDoSubtipo.value?.has(campo) ?? true
+}
+
 function texto(valor: string): string | null {
   return valor.trim() === '' ? null : valor.trim()
 }
 
+/** O que foi digitado, ou nulo quando a especificação não vale para o subtipo. */
+function especificacao(campo: Especificacao): string | null {
+  return mostra(campo) ? texto(dados.value[campo]) : null
+}
+
 function enviar(): void {
+  const puffs = especificacao('puffs')
   emit('enviar', {
     sku: dados.value.sku.trim().toUpperCase(),
     nome: dados.value.nome.trim(),
@@ -59,9 +82,9 @@ function enviar(): void {
     subtipo: dados.value.subtipo,
     preco: dados.value.preco.trim(),
     ativo: dados.value.ativo,
-    puffs: texto(dados.value.puffs) === null ? null : Number(dados.value.puffs),
-    volume_ml: texto(dados.value.volume_ml),
-    nicotina_mg_ml: texto(dados.value.nicotina_mg_ml),
+    puffs: puffs === null ? null : Number(puffs),
+    volume_ml: especificacao('volume_ml'),
+    nicotina_mg_ml: especificacao('nicotina_mg_ml'),
   })
 }
 </script>
@@ -142,32 +165,38 @@ function enviar(): void {
       <p v-if="campos?.descricao" class="campo__erro">{{ campos.descricao }}</p>
     </div>
 
-    <fieldset class="especificacoes">
+    <fieldset v-if="especificacoesDoSubtipo?.size !== 0" class="especificacoes">
       <legend class="especificacoes__titulo">Especificações</legend>
-      <p class="especificacoes__nota">
-        Preencha só as que valem para a categoria do subtipo. O servidor recusa o que não se aplica
-        e cobra o que falta.
+      <p v-if="especificacoesDoSubtipo === null" class="especificacoes__nota">
+        Escolha o subtipo para ver só as que valem. O servidor recusa o que não se aplica e cobra o
+        que falta.
       </p>
 
       <div class="tripla">
         <CampoTexto
+          v-if="mostra('puffs')"
           v-model="dados.puffs"
           rotulo="Puffs"
           inputmode="numeric"
+          :obrigatorio="especificacoesDoSubtipo !== null"
           :erro="campos?.puffs"
           :desabilitado="enviando"
         />
         <CampoTexto
+          v-if="mostra('volume_ml')"
           v-model="dados.volume_ml"
           rotulo="Volume (ml)"
           inputmode="numeric"
+          :obrigatorio="especificacoesDoSubtipo !== null"
           :erro="campos?.volume_ml"
           :desabilitado="enviando"
         />
         <CampoTexto
+          v-if="mostra('nicotina_mg_ml')"
           v-model="dados.nicotina_mg_ml"
           rotulo="Nicotina (mg/ml)"
           inputmode="numeric"
+          :obrigatorio="especificacoesDoSubtipo !== null"
           :erro="campos?.nicotina_mg_ml"
           :desabilitado="enviando"
         />

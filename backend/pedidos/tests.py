@@ -567,6 +567,124 @@ class PedidoApiTests(BasePedidoTests):
 
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    def test_admin_ve_de_quem_e_o_pedido(self) -> None:
+        autenticar(self.client, criar_usuario('admin@example.com', is_staff=True))
+
+        resposta = self.client.get(reverse('pedido-detail', args=[self.pedido_do_outro.numero]))
+
+        self.assertEqual(resposta.data['cliente'], 'outro@example.com')
+
+    def test_proximos_status_seguem_as_transicoes(self) -> None:
+        resposta = self.client.get(reverse('pedido-detail', args=[self.pedido.numero]))
+
+        self.assertEqual(
+            resposta.data['proximos_status'], [StatusPedido.PAGO, StatusPedido.CANCELADO]
+        )
+
+    def test_pedido_entregue_nao_tem_proximo_status(self) -> None:
+        Pedido.objects.filter(pk=self.pedido.pk).update(status=StatusPedido.ENTREGUE)
+
+        resposta = self.client.get(reverse('pedido-detail', args=[self.pedido.numero]))
+
+        self.assertEqual(resposta.data['proximos_status'], [])
+        self.assertFalse(resposta.data['pode_cancelar'])
+
+
+class CancelamentoPeloClienteTests(BasePedidoTests):
+    """O cliente desiste do pedido enquanto ele espera pagamento."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.encher_carrinho()
+        self.pedido = Pedido.objects.fechar_carrinho(
+            usuario=self.usuario, endereco=self.endereco, servico=ServicoFrete.ECONOMICO
+        )
+
+    def cancelar(self, numero: str | None = None):
+        return self.client.post(reverse('pedido-cancelar', args=[numero or self.pedido.numero]))
+
+    def test_cliente_cancela_o_proprio_pedido_que_espera_pagamento(self) -> None:
+        resposta = self.cancelar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_200_OK)
+        self.assertEqual(resposta.data['status'], StatusPedido.CANCELADO)
+        self.assertFalse(resposta.data['pode_cancelar'])
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, StatusPedido.CANCELADO)
+
+    def test_pedido_novo_pode_ser_cancelado(self) -> None:
+        resposta = self.client.get(reverse('pedido-detail', args=[self.pedido.numero]))
+
+        self.assertTrue(resposta.data['pode_cancelar'])
+
+    def test_pedido_pago_nao_e_cancelado_pelo_cliente(self) -> None:
+        # Depois do pagamento, cancelar exige estorno: quem cancela é a loja.
+        self.pedido.alterar_status(StatusPedido.PAGO)
+
+        resposta = self.cancelar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('status', resposta.data)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, StatusPedido.PAGO)
+
+    def test_cancelar_de_novo_e_recusado(self) -> None:
+        self.cancelar()
+
+        resposta = self.cancelar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_cliente_nao_cancela_pedido_de_outro(self) -> None:
+        carrinho_do_outro = Carrinho.objects.do_usuario(self.outro)
+        carrinho_do_outro.adicionar(self.outro_produto, 1)
+        pedido_do_outro = Pedido.objects.fechar_carrinho(
+            usuario=self.outro, endereco=criar_endereco(self.outro), servico=ServicoFrete.ECONOMICO
+        )
+
+        resposta = self.cancelar(pedido_do_outro.numero)
+
+        self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
+        pedido_do_outro.refresh_from_db()
+        self.assertEqual(pedido_do_outro.status, StatusPedido.AGUARDANDO_PAGAMENTO)
+
+    def test_admin_nao_cancela_pedido_de_outro_por_aqui(self) -> None:
+        # A loja cancela pelo fluxo de status, que deixa trilha de auditoria.
+        autenticar(self.client, criar_usuario('admin@example.com', is_staff=True))
+
+        resposta = self.cancelar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, StatusPedido.AGUARDANDO_PAGAMENTO)
+
+    def test_cancelar_sem_autenticacao(self) -> None:
+        resposta = APIClient().post(reverse('pedido-cancelar', args=[self.pedido.numero]))
+
+        self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_cancelamento_nao_atropela_pagamento_confirmado_no_mesmo_instante(self) -> None:
+        # O objeto em memória ainda acha que espera pagamento; o banco já sabe
+        # que foi pago. Quem decide é o banco.
+        Pedido.objects.filter(pk=self.pedido.pk).update(status=StatusPedido.PAGO)
+
+        with self.assertRaises(ValidationError):
+            self.pedido.cancelar_pelo_cliente()
+
+        self.pedido.refresh_from_db()
+        self.assertEqual(self.pedido.status, StatusPedido.PAGO)
+
+    def test_cancelamento_libera_vaga_no_teto_de_pendentes(self) -> None:
+        for _ in range(PEDIDOS_PENDENTES_MAXIMOS - 1):
+            self.encher_carrinho()
+            self.fechar()
+        self.cancelar()
+
+        self.encher_carrinho()
+        resposta = self.fechar()
+
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
+
 
 class FreteTests(BasePedidoTests):
     """Cotação e uso do frete."""
@@ -746,6 +864,54 @@ class EmailDePedidoTests(BasePedidoTests):
             self.fechar()
 
         self.assertEqual(EmailPendente.objects.count(), 0)
+
+
+class EmailDeStatusTests(BasePedidoTests):
+    """O "novo aviso" que a confirmação promete quando o pedido avança."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.encher_carrinho()
+        self.pedido = Pedido.objects.fechar_carrinho(
+            usuario=self.usuario, endereco=self.endereco, servico=ServicoFrete.ECONOMICO
+        )
+        self.administrador = criar_usuario('admin@example.com', is_staff=True)
+
+    def mudar_status(self, novo: str):
+        autenticar(self.client, self.administrador)
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(
+                reverse('pedido-status', args=[self.pedido.numero]), {'status': novo}, format='json'
+            )
+
+    def test_mudanca_pela_gestao_avisa_o_cliente(self) -> None:
+        self.mudar_status(StatusPedido.PAGO)
+
+        pendente = EmailPendente.objects.get()
+        self.assertEqual(pendente.destinatario, self.usuario.email)
+        self.assertIn(self.pedido.numero, pendente.assunto)
+        self.assertIn('pago', pendente.assunto)
+        self.assertIn(f'/pedidos/{self.pedido.numero}', pendente.corpo)
+
+    def test_envio_diz_para_onde_foi(self) -> None:
+        Pedido.objects.filter(pk=self.pedido.pk).update(status=StatusPedido.EM_PREPARACAO)
+
+        self.mudar_status(StatusPedido.ENVIADO)
+
+        self.assertIn('saiu para entrega em São Paulo/SP', EmailPendente.objects.get().corpo)
+
+    def test_transicao_recusada_nao_manda_email(self) -> None:
+        self.mudar_status(StatusPedido.ENTREGUE)
+
+        self.assertEqual(EmailPendente.objects.count(), 0)
+
+    def test_cancelamento_pelo_cliente_avisa_o_cliente(self) -> None:
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse('pedido-cancelar', args=[self.pedido.numero]))
+
+        corpo = EmailPendente.objects.get().corpo
+        self.assertIn('Cancelado', corpo)
+        self.assertIn('nada será cobrado', corpo)
 
 
 class LimiteDePedidosTests(BasePedidoTests):

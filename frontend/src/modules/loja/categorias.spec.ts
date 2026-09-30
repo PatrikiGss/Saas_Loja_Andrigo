@@ -9,6 +9,8 @@ function subtipo(slug: string, categoria: string, nome: string): Subtipo {
     nome,
     categoria: categoria as Subtipo['categoria'],
     categoria_display: categoria === 'essencia' ? 'Essência' : 'Pod descartável',
+    especificacoes:
+      categoria === 'essencia' ? ['volume_ml', 'nicotina_mg_ml'] : ['puffs', 'nicotina_mg_ml'],
   }
 }
 

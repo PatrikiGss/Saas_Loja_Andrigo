@@ -123,6 +123,30 @@ describe('deErro', () => {
   it('trata falha que não veio do axios', () => {
     expect(deErro(new TypeError('boom')).tipo).toBe('desconhecido')
   })
+
+  it('classifica como desconhecido o status que a API não usa', () => {
+    const erro = deErro(respostaDe(418, {}))
+
+    expect(erro.tipo).toBe('desconhecido')
+    expect(erro.status).toBe(418)
+  })
+
+  it('lê corpo vazio ou em lista sem quebrar, com a mensagem padrão', () => {
+    // Lista crua é o que o DRF devolve para `ValidationError('texto')` levantado
+    // direto na view, sem campo.
+    for (const corpo of [null, ['Algo deu errado.']]) {
+      const erro = deErro(respostaDe(400, corpo))
+
+      expect(erro.message).toBe('Confira os campos destacados.')
+      expect(erro.campos).toEqual({})
+    }
+  })
+
+  it('não transforma mensagem em branco em erro de campo', () => {
+    const erro = deErro(respostaDe(400, { nome: ['   '], email: [], cep: 'CEP inválido.' }))
+
+    expect(erro.campos).toEqual({ cep: 'CEP inválido.' })
+  })
 })
 
 describe('comoCredenciaisRecusadas', () => {

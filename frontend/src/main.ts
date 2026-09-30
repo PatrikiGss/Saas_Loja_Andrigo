@@ -5,6 +5,11 @@ import App from './App.vue'
 import { instalarSessao } from './modules/auth/instalar'
 import { instalarCarrinho } from './modules/carrinho/instalar'
 import { router } from './router'
+// Archivo servida junto com o site, com os eixos de largura e peso, em vez de
+// vir do Google Fonts: nenhum pedido a terceiro para desenhar a primeira
+// tela, e nada a declarar sobre isso a quem visita. Sem itálico, que o site
+// não usa.
+import '@fontsource-variable/archivo/wdth.css'
 import './assets/estilos/index.css'
 
 const app = createApp(App)

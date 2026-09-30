@@ -33,6 +33,7 @@ const SUBTIPOS: Subtipo[] = [
     nome: 'Nic salt',
     categoria: 'essencia',
     categoria_display: 'Essência',
+    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
   },
 ]
 

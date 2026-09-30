@@ -98,6 +98,7 @@ SPECTACULAR_SETTINGS = {
     # nome do campo (`servico` e `servico_frete` virariam dois tipos iguais).
     'ENUM_NAME_OVERRIDES': {
         'CategoriaEnum': 'loja.models.Categoria',
+        'EspecificacaoEnum': 'loja.models.ESPECIFICACOES',
         'NivelEnum': 'painel.models.Nivel',
         'UFEnum': 'painel.models.UF',
         'StatusPedidoEnum': 'pedidos.models.StatusPedido',

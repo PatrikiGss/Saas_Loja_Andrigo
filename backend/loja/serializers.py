@@ -5,9 +5,16 @@ from __future__ import annotations
 import copy
 
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from loja.models import Categoria, Produto, Subtipo
+from loja.models import (
+    ESPECIFICACOES,
+    ESPECIFICACOES_POR_CATEGORIA,
+    Categoria,
+    Produto,
+    Subtipo,
+)
 
 #: Campos visíveis ao cliente final. Estoque, status e datas ficam de fora.
 CAMPOS_CATALOGO = (
@@ -27,14 +34,29 @@ CAMPOS_CATALOGO = (
 
 
 class SubtipoSerializer(serializers.ModelSerializer):
-    """Subtipos do catálogo, usados como filtro."""
+    """Subtipos do catálogo, usados como filtro e no cadastro de produto.
+
+    `especificacoes` diz quais campos de especificação valem para a categoria
+    do subtipo — e, valendo, são obrigatórios. Sai da mesma tabela que o
+    `clean()` do produto usa, então o formulário oferece exatamente o que o
+    servidor vai aceitar.
+    """
 
     categoria_display = serializers.CharField(source='get_categoria_display', read_only=True)
+    especificacoes = serializers.SerializerMethodField()
 
     class Meta:
         model = Subtipo
-        fields = ('slug', 'nome', 'categoria', 'categoria_display')
+        fields = ('slug', 'nome', 'categoria', 'categoria_display', 'especificacoes')
         read_only_fields = ('slug', 'nome', 'categoria')
+
+    @extend_schema_field(
+        serializers.ListField(
+            child=serializers.ChoiceField(choices=[(campo, campo) for campo in ESPECIFICACOES])
+        )
+    )
+    def get_especificacoes(self, subtipo: Subtipo) -> list[str]:
+        return list(ESPECIFICACOES_POR_CATEGORIA.get(subtipo.categoria, ()))
 
 
 class ProdutoSerializer(serializers.ModelSerializer):

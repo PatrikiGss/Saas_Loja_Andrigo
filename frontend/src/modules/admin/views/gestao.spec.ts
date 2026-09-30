@@ -29,6 +29,16 @@ vi.mock('../services/usuarios')
 vi.mock('@/modules/pedidos/services/pedidos')
 vi.mock('@/modules/loja/services/catalogo')
 
+/** O que o servidor mandaria em `proximos_status` para cada status. */
+const PROXIMOS: Record<StatusPedido, StatusPedido[]> = {
+  aguardando_pagamento: ['pago', 'cancelado'],
+  pago: ['em_preparacao', 'cancelado'],
+  em_preparacao: ['enviado', 'cancelado'],
+  enviado: ['entregue'],
+  entregue: [],
+  cancelado: [],
+}
+
 function pedido(numero: string, status: StatusPedido = 'aguardando_pagamento'): Pedido {
   return {
     numero,
@@ -51,6 +61,9 @@ function pedido(numero: string, status: StatusPedido = 'aguardando_pagamento'): 
     total: '29.90',
     criado_em: '2026-09-19T02:07:30Z',
     pago_em: null,
+    cliente: `dono-de-${numero.toLowerCase()}@example.com`,
+    proximos_status: PROXIMOS[status],
+    pode_cancelar: status === 'aguardando_pagamento',
   }
 }
 
@@ -169,6 +182,7 @@ beforeEach(() => {
       nome: 'Box',
       categoria: 'pod_descartavel',
       categoria_display: 'Pod descartável',
+      especificacoes: ['puffs', 'nicotina_mg_ml'],
     },
   ])
 })
@@ -182,32 +196,34 @@ describe('gestão de pedidos', () => {
     expect(montada.text()).toContain('29,90')
   })
 
-  it('oferece todos os status, sem copiar o mapa de transições do backend', async () => {
+  it('mostra de quem é cada pedido', async () => {
+    const { montada } = await montar(PedidosView, '/admin/pedidos')
+
+    expect(montada.text()).toContain('dono-de-ped-1@example.com')
+  })
+
+  it('oferece só os status que o servidor aceita a partir do atual', async () => {
     const { montada } = await montar(PedidosView, '/admin/pedidos')
     const opcoes = montada
       .get('select')
       .findAll('option')
       .map((o) => o.text())
 
-    expect(opcoes).toEqual([
-      'Escolha',
-      'Aguardando pagamento',
-      'Pago',
-      'Em preparação',
-      'Enviado',
-      'Entregue',
-      'Cancelado',
-    ])
+    expect(opcoes).toEqual(['Escolha', 'Pago', 'Cancelado'])
   })
 
-  it('desabilita o status em que o pedido já está', async () => {
-    const { montada } = await montar(PedidosView, '/admin/pedidos')
-    const atual = montada
-      .get('select')
-      .findAll('option')
-      .find((o) => o.text() === 'Aguardando pagamento')!
+  it('pedido encerrado não tem seletor', async () => {
+    vi.mocked(servicoPedidosCliente.listarPedidos).mockResolvedValue({
+      count: 1,
+      next: null,
+      previous: null,
+      results: [pedido('PED-9', 'entregue')],
+    })
 
-    expect(atual.attributes('disabled')).toBeDefined()
+    const { montada } = await montar(PedidosView, '/admin/pedidos')
+
+    expect(montada.find('select').exists()).toBe(false)
+    expect(montada.text()).toContain('Encerrado')
   })
 
   it('move o pedido para o status escolhido', async () => {
@@ -220,18 +236,30 @@ describe('gestão de pedidos', () => {
   })
 
   it('escreve a recusa com os rótulos, e não com os identificadores', async () => {
+    // Outra pessoa da equipe cancelou o pedido entre a listagem e o clique.
     vi.mocked(servicoPedidosAdmin.alterarStatus).mockRejectedValue(
       erroDeApi(400, {
-        status: ['Não é possível ir de aguardando_pagamento para enviado.'],
+        status: ['Não é possível ir de cancelado para pago.'],
       }),
     )
     const { montada } = await montar(PedidosView, '/admin/pedidos')
 
-    await montada.get('select').setValue('enviado')
+    await montada.get('select').setValue('pago')
     await clicar(montada, 'Aplicar')
 
-    expect(montada.text()).toContain('Não dá para ir de “Aguardando pagamento” para “Enviado”.')
+    expect(montada.text()).toContain('Não dá para ir de “Aguardando pagamento” para “Pago”.')
     expect(montada.text()).not.toContain('aguardando_pagamento')
+  })
+
+  it('falha que não é de transição fica com a mensagem geral', async () => {
+    vi.mocked(servicoPedidosAdmin.alterarStatus).mockRejectedValue(erroDeApi(500, {}))
+    const { montada } = await montar(PedidosView, '/admin/pedidos')
+
+    await montada.get('select').setValue('pago')
+    await clicar(montada, 'Aplicar')
+
+    expect(montada.find('[role="alert"]').exists()).toBe(true)
+    expect(montada.text()).not.toContain('Não dá para ir de')
   })
 
   it('não aplica sem escolher destino', async () => {
@@ -286,6 +314,18 @@ describe('gestão de contas', () => {
     await clicar(montada, 'Desativar')
 
     expect(servicoUsuarios.definirAtivo).toHaveBeenCalledWith(1, false)
+  })
+
+  it('reativa conta desativada, e diz que ela está desativada', async () => {
+    vi.mocked(servicoUsuarios.listarUsuarios).mockResolvedValue([
+      { ...usuario(3, 'carla@example.com'), ativo: false },
+    ])
+    const { montada } = await montar(UsuariosView, '/admin/usuarios')
+
+    expect(montada.text()).toContain('Desativada')
+    await clicar(montada, 'Reativar')
+
+    expect(servicoUsuarios.definirAtivo).toHaveBeenCalledWith(3, true)
   })
 
   it('mostra a recusa própria do backend, e não a mensagem genérica de permissão', async () => {

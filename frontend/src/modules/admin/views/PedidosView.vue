@@ -3,11 +3,13 @@
  * Pedidos da loja inteira.
  *
  * Quem move o pedido no fluxo é o backend, que só aceita transição prevista.
- * A tela oferece todos os status em vez de adivinhar quais valem a partir do
- * atual: o mapa de transições é regra do backend (`TRANSICOES`), não há
- * endpoint que o publique, e copiá-lo para cá criaria uma segunda verdade.
- * Escolha fora do fluxo volta com 400 e a frase dizendo de onde para onde
- * não dá.
+ * Cada pedido chega com os `proximos_status` que o servidor aceita a partir
+ * do atual, e o seletor oferece esses e nada além — o mapa de transições
+ * continua morando só no backend. Pedido encerrado não tem para onde ir e
+ * não mostra seletor.
+ *
+ * A recusa com 400 continua tratada: outra pessoa da equipe pode ter movido o
+ * pedido entre a listagem e o clique.
  */
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -22,17 +24,15 @@ import { useRequisicao } from '@/composables/useRequisicao'
 import { deErro, type ErroDaApi } from '@/services/erros'
 import SeloDeStatus from '@/modules/pedidos/components/SeloDeStatus.vue'
 import { listarPedidos } from '@/modules/pedidos/services/pedidos'
-import { FLUXO, textoDoStatus, type StatusPedido } from '@/modules/pedidos/types'
+import { textoDoStatus, type StatusPedido } from '@/modules/pedidos/types'
 import { dataHora, moeda } from '@/utils/formato'
 import { alterarStatus } from '../services/pedidos'
 
 const POR_PAGINA = 20
 
-/** Os do fluxo mais o cancelamento, que é saída e não etapa. */
-const STATUS_OFERECIDOS: StatusPedido[] = [...FLUXO, 'cancelado']
-
 const COLUNAS: Coluna[] = [
   { chave: 'pedido', titulo: 'Pedido' },
+  { chave: 'cliente', titulo: 'Cliente' },
   { chave: 'total', titulo: 'Total' },
   { chave: 'status', titulo: 'Status' },
   { chave: 'mover', titulo: 'Mover para' },
@@ -125,6 +125,10 @@ async function mover(numero: string): Promise<void> {
         <span class="pedido__data">{{ dataHora(item.criado_em) }}</span>
       </template>
 
+      <template #cliente="{ item }">
+        <span class="pedido__cliente">{{ item.cliente }}</span>
+      </template>
+
       <template #total="{ item }">
         <span class="numerico">{{ moeda(item.total) }}</span>
       </template>
@@ -134,7 +138,8 @@ async function mover(numero: string): Promise<void> {
       </template>
 
       <template #mover="{ item }">
-        <div class="mover">
+        <span v-if="item.proximos_status.length === 0" class="mover__encerrado"> Encerrado </span>
+        <div v-else class="mover">
           <label>
             <span class="apenas-leitor">Novo status do pedido {{ item.numero }}</span>
             <!-- `:value` e não `v-model`: com o mapa ainda vazio, o v-model
@@ -149,12 +154,7 @@ async function mover(numero: string): Promise<void> {
               "
             >
               <option value="" disabled>Escolha</option>
-              <option
-                v-for="status in STATUS_OFERECIDOS"
-                :key="status"
-                :value="status"
-                :disabled="status === item.status"
-              >
+              <option v-for="status in item.proximos_status" :key="status" :value="status">
                 {{ textoDoStatus(status) }}
               </option>
             </select>
@@ -208,6 +208,17 @@ async function mover(numero: string): Promise<void> {
 .pedido__data {
   display: block;
   font-size: var(--texto-xs);
+  color: var(--tinta-media);
+}
+
+/* E-mail comprido quebra em qualquer ponto em vez de alargar a tabela. */
+.pedido__cliente {
+  font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
+}
+
+.mover__encerrado {
+  font-size: var(--texto-sm);
   color: var(--tinta-media);
 }
 

@@ -4,8 +4,14 @@ import type { Consulta, Esquema } from '@/types/api'
 /** Valores de `Categoria.choices`. O rótulo legível vem da API, não daqui. */
 export type CategoriaSlug = Esquema<'CategoriaEnum'>
 
-/** Resposta de `GET /api/subtipos/`. */
+/**
+ * Resposta de `GET /api/subtipos/`. `especificacoes` são as que valem para a
+ * categoria do subtipo — e, valendo, são obrigatórias.
+ */
 export type Subtipo = Esquema<'Subtipo'>
+
+/** Campo de especificação do produto: puffs, volume ou nicotina. */
+export type Especificacao = Esquema<'EspecificacaoEnum'>
 
 /** Uma categoria montada a partir dos subtipos que a API devolveu. */
 export interface Categoria {

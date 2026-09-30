@@ -136,6 +136,14 @@ class CarrinhoTests(BaseCarrinhoTests):
 
         self.assertEqual(len(com_um_item.captured_queries), len(com_dois_itens.captured_queries))
 
+    def test_produto_traz_a_categoria(self) -> None:
+        # É de onde sai a cor do produto na linha do carrinho.
+        self.adicionar(self.produto, 1)
+
+        resposta = self.client.get(reverse('carrinho'))
+
+        self.assertEqual(resposta.data['itens'][0]['produto']['categoria'], Categoria.VAPE)
+
     def test_admin_enxerga_o_proprio_carrinho(self) -> None:
         self.adicionar(self.produto, 1)
         autenticar(self.client, criar_usuario('admin@example.com', is_staff=True))

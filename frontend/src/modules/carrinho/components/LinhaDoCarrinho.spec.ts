@@ -11,6 +11,7 @@ const ITEM: ItemCarrinho = {
     sku: 'SKU-7',
     nome: 'Pod de menta',
     preco: '49.90',
+    categoria: 'pod_descartavel',
     disponivel: true,
   },
   quantidade: 2,
@@ -30,6 +31,19 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 describe('LinhaDoCarrinho', () => {
+  it('pinta o produto com a cor da categoria que o servidor mandou', () => {
+    const bloco = montar().get('.bloco')
+
+    expect(bloco.attributes('style')).toContain('--matiz: var(--cat-pod-descartavel)')
+    expect(bloco.classes()).not.toContain('bloco--esgotado')
+  })
+
+  it('apaga a cor do produto indisponível', () => {
+    const linha = montar({ ...ITEM, produto: { ...ITEM.produto, disponivel: false } })
+
+    expect(linha.get('.bloco').classes()).toContain('bloco--esgotado')
+  })
+
   it('espera antes de mandar, para quem clica várias vezes seguidas', async () => {
     const linha = montar()
     const [, mais] = botoes(linha)

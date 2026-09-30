@@ -39,7 +39,7 @@ export default defineConfig({
       // Os limites ficam um pouco abaixo do que a suíte alcança, para impedir
       // regressão sem quebrar o CI a cada linha nova. Subir isto significa
       // escrever teste, não afrouxar o `exclude`.
-      thresholds: { lines: 96, functions: 93, branches: 91, statements: 96 },
+      thresholds: { lines: 96, functions: 93, branches: 93, statements: 96 },
     },
   },
 })

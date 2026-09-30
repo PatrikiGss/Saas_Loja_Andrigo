@@ -676,6 +676,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/Pedido'
           description: ''
+  /api/pedidos/{numero}/cancelar/:
+    post:
+      operationId: pedidos_cancelar_create
+      description: |-
+        Cancela o próprio pedido enquanto ele espera pagamento.
+
+        A consulta é a da própria conta mesmo para admin: pedido de outra
+        pessoa não existe aqui, e a resposta é 404. A loja cancela pelo fluxo
+        de status, que tem trilha de auditoria.
+      parameters:
+      - in: path
+        name: numero
+        schema:
+          type: string
+        required: true
+      tags:
+      - pedidos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pedido'
+          description: ''
   /api/pedidos/{numero}/status/:
     post:
       operationId: pedidos_status_create
@@ -1576,6 +1602,16 @@ components:
       - logradouro
       - numero
       - uf
+    EspecificacaoEnum:
+      enum:
+      - puffs
+      - volume_ml
+      - nicotina_mg_ml
+      type: string
+      description: |-
+        * `puffs` - puffs
+        * `volume_ml` - volume_ml
+        * `nicotina_mg_ml` - nicotina_mg_ml
     EstoqueAjustado:
       type: object
       properties:
@@ -1936,10 +1972,21 @@ components:
           type: boolean
     Pedido:
       type: object
-      description: Pedido do cliente. Nada aqui é gravável pela API.
+      description: |-
+        Pedido. Nada aqui é gravável pela API.
+
+        `cliente` é o e-mail da conta dona, para a gestão saber de quem é o pedido;
+        o cliente só enxerga os próprios, então só vê o próprio e-mail.
+        `proximos_status` são as transições que a loja pode fazer a partir daqui,
+        e `pode_cancelar` diz se o próprio cliente ainda pode desistir. As duas
+        saem das regras do modelo, para a tela oferecer só o que o servidor aceita.
       properties:
         numero:
           type: string
+          readOnly: true
+        cliente:
+          type: string
+          format: email
           readOnly: true
         status:
           allOf:
@@ -1989,14 +2036,25 @@ components:
           format: date-time
           readOnly: true
           nullable: true
+        proximos_status:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusPedidoEnum'
+          readOnly: true
+        pode_cancelar:
+          type: boolean
+          readOnly: true
       required:
+      - cliente
       - criado_em
       - entrega
       - frete
       - itens
       - numero
       - pago_em
+      - pode_cancelar
       - prazo_frete_em_dias
+      - proximos_status
       - servico_frete
       - status
       - status_pagamento
@@ -2271,7 +2329,7 @@ components:
         O que o front precisa mostrar do produto dentro do carrinho.
 
         `disponivel` resume o estado atual sem expor o estoque, que não é público
-        no catálogo.
+        no catálogo. `categoria` dá a cor do produto, como no catálogo.
       properties:
         id:
           type: string
@@ -2288,10 +2346,15 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        categoria:
+          allOf:
+          - $ref: '#/components/schemas/CategoriaEnum'
+          readOnly: true
         disponivel:
           type: boolean
           readOnly: true
       required:
+      - categoria
       - disponivel
       - id
       - nome
@@ -2378,7 +2441,13 @@ components:
         * `cancelado` - Cancelado
     Subtipo:
       type: object
-      description: Subtipos do catálogo, usados como filtro.
+      description: |-
+        Subtipos do catálogo, usados como filtro e no cadastro de produto.
+
+        `especificacoes` diz quais campos de especificação valem para a categoria
+        do subtipo — e, valendo, são obrigatórios. Sai da mesma tabela que o
+        `clean()` do produto usa, então o formulário oferece exatamente o que o
+        servidor vai aceitar.
       properties:
         slug:
           type: string
@@ -2394,9 +2463,15 @@ components:
         categoria_display:
           type: string
           readOnly: true
+        especificacoes:
+          type: array
+          items:
+            $ref: '#/components/schemas/EspecificacaoEnum'
+          readOnly: true
       required:
       - categoria
       - categoria_display
+      - especificacoes
       - nome
       - slug
     UFEnum:

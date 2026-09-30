@@ -95,8 +95,9 @@ cd backend && python manage.py createsuperuser --username admin@exemplo.com --em
 
 ### E-mail
 
-Cadastro e recuperação de senha entram numa fila no banco em vez de segurar a
-requisição no SMTP. Em desenvolvimento o e-mail sai no console; para vê-lo,
+Cadastro, recuperação de senha, confirmação de pedido e cada mudança de
+status do pedido entram numa fila no banco em vez de segurar a requisição no
+SMTP. Em desenvolvimento o e-mail sai no console; para vê-lo,
 rode a entrega:
 
 ```bash
@@ -146,7 +147,7 @@ minutos para segundos. Com cobertura:
 cd backend && coverage run manage.py test --settings=configs.settings_test && coverage report
 ```
 
-O relatório falha abaixo de 90%. Hoje está em 97%, com 328 testes — boa parte
+O relatório falha abaixo de 90%. Hoje está em 97%, com 346 testes — boa parte
 deles tentativas de ataque: mudar preço no payload, acessar pedido de outra
 conta, virar admin, IDOR, mass assignment.
 
@@ -162,7 +163,7 @@ Com cobertura:
 cd frontend && npm run cobertura
 ```
 
-São 418 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
+São 441 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
 backend. O relatório falha abaixo dos limites configurados, que ficam um pouco
 abaixo do alcançado para não quebrar o CI a cada linha nova.
 
@@ -187,8 +188,9 @@ cd frontend && npm run build
 Os testes acima trocam a API por dublês. Os de ponta a ponta, com o
 Playwright, põem o frontend de verdade contra o backend de verdade num
 navegador: entrar, continuar dentro depois de recarregar, sair, errar a senha,
-e comprar do catálogo até o pedido registrado — conferindo que o total que a
-tela estima é o que o servidor cobra.
+comprar do catálogo até o pedido registrado — conferindo que o total que a
+tela estima é o que o servidor cobra —, cancelar o pedido que espera
+pagamento, e a gestão movendo o pedido só pelos status que o servidor aceita.
 
 Na primeira vez, baixe o navegador:
 
@@ -331,8 +333,12 @@ proteção própria.
   só, que é o que sai de cena quando o gateway entrar.
 - **Imagem de produto.** O backend não tem o campo. No lugar da foto, o
   produto aparece por cor: a categoria dá o matiz e o SKU dá o tom.
-- **Cancelamento pelo cliente**, código de rastreio, frete real com
-  transportadora, verificação de idade e aceite de termos.
+- **Código de rastreio e frete real**, que dependem de transportadora.
+- **Verificação de idade, aceite de termos e o par exportar/apagar dados.**
+
+O cliente cancela o próprio pedido só enquanto ele espera pagamento. Depois
+de pago, cancelar exige estorno, que depende do gateway: aí quem cancela é a
+loja, pelo fluxo de status da gestão.
 
 Endereço e frete estão modelados no formato brasileiro (CEP, UF, tabela por
 região) e a moeda está em BRL. Enquanto o país de operação não for definido,

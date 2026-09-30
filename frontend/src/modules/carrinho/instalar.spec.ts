@@ -6,13 +6,21 @@ import { useSessao } from '@/modules/auth/stores/sessao'
 import { instalarCarrinho } from './instalar'
 import * as servico from './services/carrinho'
 import { useCarrinho } from './stores/carrinho'
+import type { ItemCarrinho } from './types'
 
 vi.mock('./services/carrinho')
 
-function item() {
+function item(): ItemCarrinho {
   return {
     id: 1,
-    produto: { id: 'p1', sku: 'S', nome: 'N', preco: '10.00', disponivel: true },
+    produto: {
+      id: 'p1',
+      sku: 'S',
+      nome: 'N',
+      preco: '10.00',
+      categoria: 'pod_descartavel',
+      disponivel: true,
+    },
     quantidade: 2,
     subtotal: '20.00',
   }

@@ -5,9 +5,11 @@ import { defineComponent, h } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import * as servicoCarrinho from '@/modules/carrinho/services/carrinho'
+import type { Carrinho } from '@/modules/carrinho/types'
 import * as servicoEnderecos from '@/modules/enderecos/services/enderecos'
 import type { Endereco } from '@/modules/enderecos/types'
 import type { Pedido } from '@/modules/pedidos/types'
+import ResumoDoPedido from '../components/ResumoDoPedido.vue'
 import CheckoutView from './CheckoutView.vue'
 import * as servicoCheckout from '../services/checkout'
 
@@ -40,6 +42,9 @@ const PEDIDO: Pedido = {
   total: '69.80',
   criado_em: '2026-09-19T00:09:00Z',
   pago_em: null,
+  cliente: 'ana@example.com',
+  proximos_status: ['pago', 'cancelado'],
+  pode_cancelar: true,
 }
 
 const Vazio = defineComponent({ setup: () => () => h('div') })
@@ -66,12 +71,19 @@ async function montar() {
   return tela
 }
 
-function carrinhoCom(quantidade = 1) {
+function carrinhoCom(quantidade = 1): Carrinho {
   return {
     itens: [
       {
         id: 1,
-        produto: { id: 'p1', sku: 'SKU-1', nome: 'Pod', preco: '49.90', disponivel: true },
+        produto: {
+          id: 'p1',
+          sku: 'SKU-1',
+          nome: 'Pod',
+          preco: '49.90',
+          categoria: 'pod_descartavel',
+          disponivel: true,
+        },
         quantidade,
         subtotal: '49.90',
       },
@@ -124,10 +136,14 @@ describe('CheckoutView', () => {
     const tela = await montar()
     await avancarAteOResumo(tela)
 
-    const fechar = tela.findAll('button').find((b) => b.text().includes('Fechar pedido'))!
-    await fechar.trigger('click')
-    await fechar.trigger('click')
-    await fechar.trigger('click')
+    // Direto pelo evento, e não pelo botão: depois do primeiro clique o botão
+    // se desabilita e o teste passaria sem nunca chegar à trava do `fechar()`.
+    // É o caminho de um atalho de teclado ou de um clique duplo que chega
+    // antes de a tela redesenhar.
+    const resumo = tela.findComponent(ResumoDoPedido)
+    resumo.vm.$emit('fechar')
+    resumo.vm.$emit('fechar')
+    resumo.vm.$emit('fechar')
 
     expect(servicoCheckout.fecharPedido).toHaveBeenCalledTimes(1)
 
@@ -226,7 +242,14 @@ describe('CheckoutView', () => {
       itens: [
         {
           id: 1,
-          produto: { id: 'p1', sku: 'SKU-1', nome: 'Pod', preco: '49.90', disponivel: false },
+          produto: {
+            id: 'p1',
+            sku: 'SKU-1',
+            nome: 'Pod',
+            preco: '49.90',
+            categoria: 'pod_descartavel',
+            disponivel: false,
+          },
           quantidade: 1,
           subtotal: '49.90',
         },

@@ -17,7 +17,7 @@ from carrinho.models import Carrinho
 from painel.auditoria import registrar
 from painel.permissions import EhAdmin, e_admin
 from pedidos import cep as consulta_de_cep
-from pedidos.emails import enviar_confirmacao_de_pedido
+from pedidos.emails import enviar_confirmacao_de_pedido, enviar_mudanca_de_status
 from pedidos.frete import cotar
 from pedidos.models import Pedido
 from pedidos.serializers import (
@@ -81,7 +81,7 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Pedido.objects.none()
 
     def get_queryset(self) -> QuerySet[Pedido]:
-        pedidos = Pedido.objects.select_related('entrega').prefetch_related('itens')
+        pedidos = Pedido.objects.select_related('entrega', 'usuario').prefetch_related('itens')
         if e_admin(self.request.user):
             return pedidos
         return pedidos.filter(usuario=self.request.user)
@@ -111,6 +111,29 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
             alvo=f'pedido:{pedido.numero}',
             detalhes=pedido.status,
         )
+        transaction.on_commit(lambda: enviar_mudanca_de_status(pedido))
+
+        return Response(PedidoSerializer(pedido).data)
+
+    @extend_schema(request=None, responses=PedidoSerializer)
+    @action(detail=True, methods=('post',), url_path='cancelar', url_name='cancelar')
+    def cancelar(self, request: Request, numero: str | None = None) -> Response:
+        """Cancela o próprio pedido enquanto ele espera pagamento.
+
+        A consulta é a da própria conta mesmo para admin: pedido de outra
+        pessoa não existe aqui, e a resposta é 404. A loja cancela pelo fluxo
+        de status, que tem trilha de auditoria.
+        """
+        pedido = generics.get_object_or_404(
+            self.get_queryset().filter(usuario=request.user), numero=numero
+        )
+
+        try:
+            pedido.cancelar_pelo_cliente()
+        except ErroDeValidacaoDoModelo as erro:
+            raise ValidationError(serializers.as_serializer_error(erro)) from erro
+
+        transaction.on_commit(lambda: enviar_mudanca_de_status(pedido))
 
         return Response(PedidoSerializer(pedido).data)
 

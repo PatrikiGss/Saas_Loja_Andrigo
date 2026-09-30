@@ -193,6 +193,36 @@ class Pedido(models.Model):
     def pode_ir_para(self, status: str) -> bool:
         return status in TRANSICOES.get(self.status, ())
 
+    @property
+    def proximos_status(self) -> tuple[str, ...]:
+        """Para onde a loja pode mover o pedido a partir de agora."""
+        return TRANSICOES.get(self.status, ())
+
+    @property
+    def pode_ser_cancelado_pelo_cliente(self) -> bool:
+        """Só enquanto espera pagamento.
+
+        Depois de pago, cancelar exige estorno, que depende do gateway: aí
+        quem cancela é a loja, pelo fluxo de status.
+        """
+        return self.status == StatusPedido.AGUARDANDO_PAGAMENTO
+
+    def cancelar_pelo_cliente(self) -> None:
+        """Cancela o pedido a pedido do próprio cliente.
+
+        A troca é condicional no banco — só acontece se o status ainda for o de
+        espera —, então um pagamento confirmado no mesmo instante não é
+        atropelado por um cancelamento que leu o status antigo.
+        """
+        agora = timezone.now()
+        trocados = Pedido.objects.filter(
+            pk=self.pk, status=StatusPedido.AGUARDANDO_PAGAMENTO
+        ).update(status=StatusPedido.CANCELADO, atualizado_em=agora)
+        if not trocados:
+            raise ValidationError({'status': 'Este pedido não pode mais ser cancelado.'})
+        self.status = StatusPedido.CANCELADO
+        self.atualizado_em = agora
+
     def alterar_status(self, novo_status: str) -> None:
         """Move o pedido no fluxo, recusando transição que não existe."""
         if not self.pode_ir_para(novo_status):

@@ -9,7 +9,14 @@ import type { OpcaoFrete } from '../types'
 
 const ITEM: ItemCarrinho = {
   id: 1,
-  produto: { id: 'p1', sku: 'SKU-1', nome: 'Pod de menta', preco: '49.90', disponivel: true },
+  produto: {
+    id: 'p1',
+    sku: 'SKU-1',
+    nome: 'Pod de menta',
+    preco: '49.90',
+    categoria: 'pod_descartavel',
+    disponivel: true,
+  },
   quantidade: 2,
   subtotal: '99.80',
 }

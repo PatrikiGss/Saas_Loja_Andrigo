@@ -32,8 +32,9 @@
   --cat-vaporizador-ervas: #7e9b23;
   --cat-indefinida: var(--linha-forte);
 
-  /* Tipografia: uma família só, com eixo de largura. */
-  --fonte: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Tipografia: uma família só, com eixo de largura. O nome é o que o
+     pacote do Fontsource registra (ver main.ts). */
+  --fonte: 'Archivo Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --texto-2xs: 0.75rem;
   --texto-xs: 0.8125rem;

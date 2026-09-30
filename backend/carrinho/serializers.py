@@ -8,21 +8,24 @@ from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from rest_framework import serializers
 
 from carrinho.models import QUANTIDADE_MAXIMA, Carrinho, ItemCarrinho
-from loja.models import Produto
+from loja.models import Categoria, Produto
 
 
 class ProdutoNoCarrinhoSerializer(serializers.ModelSerializer):
     """O que o front precisa mostrar do produto dentro do carrinho.
 
     `disponivel` resume o estado atual sem expor o estoque, que não é público
-    no catálogo.
+    no catálogo. `categoria` dá a cor do produto, como no catálogo.
     """
 
+    categoria = serializers.ChoiceField(
+        choices=Categoria.choices, source='subtipo.categoria', read_only=True
+    )
     disponivel = serializers.SerializerMethodField()
 
     class Meta:
         model = Produto
-        fields = ('id', 'sku', 'nome', 'preco', 'disponivel')
+        fields = ('id', 'sku', 'nome', 'preco', 'categoria', 'disponivel')
 
     def get_disponivel(self, produto: Produto) -> bool:
         return produto.ativo and produto.em_estoque

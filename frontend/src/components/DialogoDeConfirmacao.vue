@@ -17,9 +17,15 @@ const props = withDefaults(
     descricao?: string
     /** O que o botão faz, escrito como a ação: 'Limpar carrinho'. */
     confirmar?: string
+    /**
+     * O botão de desistir. 'Cancelar' serve quase sempre; num diálogo que
+     * cancela alguma coisa, ele ficaria ao lado de 'Cancelar pedido' e os dois
+     * pareceriam a mesma ação.
+     */
+    desistir?: string
     processando?: boolean
   }>(),
-  { confirmar: 'Confirmar' },
+  { confirmar: 'Confirmar', desistir: 'Cancelar' },
 )
 
 const emit = defineEmits<{ confirmar: []; cancelar: [] }>()
@@ -58,7 +64,7 @@ onBeforeUnmount(() => caixa.value?.close())
 
     <div class="dialogo__acoes">
       <BotaoBase variante="secundario" :desabilitado="processando" @click="emit('cancelar')">
-        Cancelar
+        {{ desistir }}
       </BotaoBase>
       <BotaoBase :carregando="processando" @click="emit('confirmar')">
         {{ confirmar }}

@@ -141,6 +141,48 @@ describe('FormularioDeEndereco', () => {
     expect(formulario.text()).toContain('oito dígitos')
   })
 
+  it('com CEP geral da cidade, mantém a rua e o bairro que a pessoa digitou', async () => {
+    // Para CEP de cidade inteira o provedor devolve rua e bairro vazios.
+    vi.mocked(servico.consultarCep).mockResolvedValue({
+      cep: '13100000',
+      logradouro: '',
+      complemento: '',
+      bairro: '',
+      cidade: 'Campinas',
+      uf: 'SP',
+    })
+    const formulario = montar()
+    await preencher(formulario, 'Rua', 'Rua das Flores')
+    await preencher(formulario, 'Bairro', 'Centro')
+
+    await preencher(formulario, 'CEP', '13100000')
+    await formulario
+      .findAll('button')
+      .find((b) => b.text().includes('Buscar CEP'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(valorDe(formulario, 'Rua')).toBe('Rua das Flores')
+    expect(valorDe(formulario, 'Bairro')).toBe('Centro')
+    expect(valorDe(formulario, 'Cidade')).toBe('Campinas')
+  })
+
+  it('sem conexão na busca de CEP, diz isso no campo', async () => {
+    vi.mocked(servico.consultarCep).mockRejectedValue(
+      new AxiosError('falhou', undefined, { headers: new AxiosHeaders() }, {}),
+    )
+    const formulario = montar()
+
+    await preencher(formulario, 'CEP', '01001000')
+    await formulario
+      .findAll('button')
+      .find((b) => b.text().includes('Buscar CEP'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect(campoDe(formulario, 'CEP').text()).toContain('conexão')
+  })
+
   it('deixa preencher à mão quando a busca de CEP falha', async () => {
     const config = { headers: new AxiosHeaders() }
     vi.mocked(servico.consultarCep).mockRejectedValue(

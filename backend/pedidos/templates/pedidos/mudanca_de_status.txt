@@ -1,0 +1,12 @@
+Olá, {{ pedido.usuario.first_name|default:pedido.usuario.email }}.
+
+O seu pedido {{ pedido.numero }} mudou de situação.
+
+STATUS
+{{ pedido.get_status_display }}
+{% if pedido.status == 'cancelado' %}
+O pedido foi cancelado e nada será cobrado por ele.
+{% elif pedido.status == 'enviado' %}
+O pedido saiu para entrega em {{ pedido.entrega.cidade }}/{{ pedido.entrega.uf }}.
+{% endif %}
+Acompanhe em: {{ endereco }}

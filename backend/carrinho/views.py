@@ -18,8 +18,11 @@ from carrinho.serializers import (
     QuantidadeItemSerializer,
 )
 
-#: Itens e produtos em uma consulta só, para a leitura não cair em N+1.
-ITENS_COM_PRODUTO = Prefetch('itens', queryset=ItemCarrinho.objects.select_related('produto'))
+#: Itens, produtos e subtipos em uma consulta só, para a leitura não cair em
+#: N+1. O subtipo vem junto porque é dele que sai a categoria do produto.
+ITENS_COM_PRODUTO = Prefetch(
+    'itens', queryset=ItemCarrinho.objects.select_related('produto__subtipo')
+)
 
 
 class CarrinhoView(generics.RetrieveAPIView):
@@ -75,7 +78,7 @@ class ItemCarrinhoView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self) -> QuerySet[ItemCarrinho]:
-        return ItemCarrinho.objects.select_related('produto').filter(
+        return ItemCarrinho.objects.select_related('produto__subtipo').filter(
             carrinho__usuario=self.request.user
         )
 

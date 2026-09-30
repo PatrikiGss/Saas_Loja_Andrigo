@@ -312,6 +312,13 @@ class CatalogoPublicoTests(BaseCatalogoTests):
         slugs = [item['slug'] for item in resposta.data['results']]
         self.assertIn(self.vape.slug, slugs)
 
+    def test_subtipo_diz_quais_especificacoes_valem(self) -> None:
+        resposta = self.client.get(reverse('subtipo-list'))
+
+        por_slug = {item['slug']: item['especificacoes'] for item in resposta.data['results']}
+        self.assertEqual(por_slug[self.essencia.slug], ['volume_ml', 'nicotina_mg_ml'])
+        self.assertEqual(por_slug[self.vape.slug], [])
+
     def test_subtipos_nao_aceitam_escrita(self) -> None:
         resposta = self.client.post(
             reverse('subtipo-list'), {'nome': 'Novo', 'slug': 'novo'}, format='json'

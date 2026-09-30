@@ -14,7 +14,7 @@ import type { Esquema } from '../src/types/api'
 export const API = 'http://localhost:8000/api'
 
 /** Conta de `backend/configs/fixture_e2e.json`. Só existe no banco dos testes. */
-const ADMIN = { email: 'admin@loja.test', senha: 'admin-da-suite-e2e' }
+export const ADMIN: Conta = { email: 'admin@loja.test', senha: 'admin-da-suite-e2e', nome: 'Admin' }
 
 /** O produto que o preparo cadastra. Um vape, que não exige especificação. */
 export const PRODUTO = {
@@ -30,12 +30,62 @@ export interface Conta {
   nome: string
 }
 
-export async function tokenDoAdmin(api: APIRequestContext): Promise<string> {
+async function token(api: APIRequestContext, conta: Conta): Promise<string> {
   const resposta = await api.post(`${API}/auth/login/`, {
-    data: { email: ADMIN.email, password: ADMIN.senha } satisfies Esquema<'LoginRequest'>,
+    data: { email: conta.email, password: conta.senha } satisfies Esquema<'LoginRequest'>,
   })
-  expect(resposta.ok(), 'login da conta admin da fixture').toBe(true)
+  expect(resposta.ok(), `login de ${conta.email}`).toBe(true)
   return ((await resposta.json()) as Esquema<'Acesso'>).access
+}
+
+export function tokenDoAdmin(api: APIRequestContext): Promise<string> {
+  return token(api, ADMIN)
+}
+
+/**
+ * Um pedido da conta, esperando pagamento, fechado pela API.
+ *
+ * Para os testes em que o pedido é o ponto de partida, e não o que se testa:
+ * o caminho pela tela já tem teste próprio em `compra.spec.ts`.
+ */
+export async function pedidoAguardandoPagamento(
+  api: APIRequestContext,
+  conta: Conta,
+): Promise<string> {
+  const cabecalhos = { Authorization: `Bearer ${await token(api, conta)}` }
+
+  const catalogo = (await (
+    await api.get(`${API}/produtos/`, { params: { search: PRODUTO.sku } })
+  ).json()) as Esquema<'PaginatedProdutoConformeQuemPerguntaList'>
+  const produto = catalogo.results[0]
+  expect(produto, 'produto do preparo no catálogo').toBeDefined()
+
+  const item = await api.post(`${API}/carrinho/itens/`, {
+    headers: cabecalhos,
+    data: { produto: produto.id, quantidade: 1 } satisfies Esquema<'AdicionarItemRequest'>,
+  })
+  expect(item.status(), await item.text()).toBe(201)
+
+  const endereco = await api.post(`${API}/enderecos/`, {
+    headers: cabecalhos,
+    data: {
+      cep: '01001000',
+      logradouro: 'Praça da Sé',
+      numero: '100',
+      bairro: 'Sé',
+      cidade: 'São Paulo',
+      uf: 'SP',
+    } satisfies Esquema<'EnderecoRequest'>,
+  })
+  expect(endereco.status(), await endereco.text()).toBe(201)
+  const { id } = (await endereco.json()) as Esquema<'Endereco'>
+
+  const checkout = await api.post(`${API}/checkout/`, {
+    headers: cabecalhos,
+    data: { endereco: id, servico: 'economico' } satisfies Esquema<'CheckoutRequest'>,
+  })
+  expect(checkout.status(), await checkout.text()).toBe(201)
+  return ((await checkout.json()) as Esquema<'Pedido'>).numero
 }
 
 /**

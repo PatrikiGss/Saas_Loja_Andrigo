@@ -6,10 +6,14 @@
  * subtotal não: ele é dinheiro, vem do servidor, e fica marcado como em
  * atualização até a resposta chegar. Mostrar um subtotal calculado aqui
  * seria adivinhar o que só o backend decide.
+ *
+ * O bloco de cor é o mesmo do catálogo, então o produto é reconhecível pela
+ * cor antes de pelo nome.
  */
 import { onBeforeUnmount, ref, watch } from 'vue'
 
 import BotaoBase from '@/components/BotaoBase.vue'
+import BlocoDoProduto from '@/modules/loja/components/BlocoDoProduto.vue'
 import { moeda } from '@/utils/formato'
 import { QUANTIDADE_MAXIMA, type ItemCarrinho } from '../types'
 
@@ -83,11 +87,20 @@ onBeforeUnmount(() => clearTimeout(temporizador))
 <template>
   <div class="linha" :class="{ 'linha--indisponivel': !item.produto.disponivel }">
     <div class="linha__produto">
-      <h2 class="linha__nome">{{ item.produto.nome }}</h2>
-      <p class="linha__sku numerico">{{ item.produto.sku }}</p>
-      <p v-if="!item.produto.disponivel" class="linha__aviso">
-        Indisponível. Remova para fechar o pedido.
-      </p>
+      <BlocoDoProduto
+        class="linha__cor"
+        :categoria="item.produto.categoria"
+        :sku="item.produto.sku"
+        formato="quadrado"
+        :esgotado="!item.produto.disponivel"
+      />
+      <div>
+        <h2 class="linha__nome">{{ item.produto.nome }}</h2>
+        <p class="linha__sku numerico">{{ item.produto.sku }}</p>
+        <p v-if="!item.produto.disponivel" class="linha__aviso">
+          Indisponível. Remova para fechar o pedido.
+        </p>
+      </div>
     </div>
 
     <div class="linha__quantidade">
@@ -148,6 +161,17 @@ onBeforeUnmount(() => clearTimeout(temporizador))
 .linha--indisponivel .linha__nome,
 .linha--indisponivel .linha__subtotal {
   color: var(--tinta-media);
+}
+
+.linha__produto {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+}
+
+.linha__cor {
+  flex: none;
+  width: 3rem;
 }
 
 .linha__nome {
