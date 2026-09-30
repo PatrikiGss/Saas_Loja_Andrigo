@@ -11,6 +11,7 @@ import { RouterView, useRoute } from 'vue-router'
 
 import LayoutAdmin from '@/modules/admin/layouts/LayoutAdmin.vue'
 import LayoutLoja from '@/layouts/LayoutLoja.vue'
+import PerguntaDeIdade from '@/modules/idade/components/PerguntaDeIdade.vue'
 
 const rota = useRoute()
 const moldura = computed(() => (rota.meta.admin ? LayoutAdmin : LayoutLoja))
@@ -20,4 +21,6 @@ const moldura = computed(() => (rota.meta.admin ? LayoutAdmin : LayoutLoja))
   <component :is="moldura">
     <RouterView />
   </component>
+  <!-- Fora da moldura: vale para a loja e para a gestão. -->
+  <PerguntaDeIdade />
 </template>

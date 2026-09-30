@@ -14,6 +14,8 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import BotaoBase from '@/components/BotaoBase.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import DialogoDeConfirmacao from '@/components/DialogoDeConfirmacao.vue'
+import PerguntaDeIdade from '@/modules/idade/components/PerguntaDeIdade.vue'
+import { useIdade } from '@/modules/idade/stores/idade'
 import PaginacaoLista from '@/components/PaginacaoLista.vue'
 import { useSessao } from '@/modules/auth/stores/sessao'
 import LoginView from '@/modules/auth/views/LoginView.vue'
@@ -283,6 +285,15 @@ describe('acessibilidade dos componentes de base', () => {
       },
       attachTo: document.body,
     })
+    await flushPromises()
+
+    conferir(await auditar(montado))
+    montado.unmount()
+  })
+
+  it('pergunta de idade aberta', async () => {
+    void useIdade().confirmar('entrada')
+    const montado = mount(PerguntaDeIdade, { attachTo: document.body })
     await flushPromises()
 
     conferir(await auditar(montado))

@@ -9,7 +9,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
-import { NOME_DA_LOJA } from '@/app/config'
+import { IDADE_MINIMA, NOME_DA_LOJA } from '@/app/config'
 import BotaoBase from '@/components/BotaoBase.vue'
 import { useSessao } from '@/modules/auth/stores/sessao'
 import { useCarrinho } from '@/modules/carrinho/stores/carrinho'
@@ -95,7 +95,7 @@ async function sair() {
     </main>
 
     <footer class="rodape">
-      <p class="rodape__texto">Venda proibida para menores de 18 anos.</p>
+      <p class="rodape__texto">Venda proibida para menores de {{ IDADE_MINIMA }} anos.</p>
     </footer>
   </div>
 </template>

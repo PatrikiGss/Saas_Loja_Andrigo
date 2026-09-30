@@ -4,6 +4,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import { instalarSessao } from './modules/auth/instalar'
 import { instalarCarrinho } from './modules/carrinho/instalar'
+import { instalarVerificacaoDeIdade } from './modules/idade/instalar'
 import { router } from './router'
 // Archivo servida junto com o site, com os eixos de largura e peso, em vez de
 // vir do Google Fonts: nenhum pedido a terceiro para desenhar a primeira
@@ -20,6 +21,9 @@ app.use(createPinia())
 instalarSessao(router)
 // Depois da sessão: o carrinho acompanha quem está autenticado.
 instalarCarrinho()
+// Também depois da sessão: quem não entrou vai primeiro ao login, e só ouve a
+// pergunta de idade do carrinho quando chega a ele.
+instalarVerificacaoDeIdade(router)
 app.use(router)
 
 app.mount('#app')

@@ -92,7 +92,24 @@ export async function pedidoAguardandoPagamento(
  * Cada teste ganha uma conta de cliente nova, com carrinho vazio e sem
  * endereço: nenhum depende do que outro deixou para trás.
  */
-export const test = base.extend<{ cliente: Conta }>({
+export const test = base.extend<{ cliente: Conta; idadeRespondida: boolean }>({
+  /**
+   * A pergunta de idade tem teste próprio (`idade.spec.ts`, que desliga
+   * isto). Nos outros ela já chega respondida na sessão, do jeito que a
+   * própria tela guarda o sim.
+   */
+  idadeRespondida: [true, { option: true }],
+
+  page: async ({ page, idadeRespondida }, use) => {
+    if (idadeRespondida) {
+      await page.addInitScript(() => {
+        sessionStorage.setItem('bigpuffs:idade:entrada', 'sim')
+        sessionStorage.setItem('bigpuffs:idade:compra', 'sim')
+      })
+    }
+    await use(page)
+  },
+
   cliente: async ({ request }, use) => {
     const conta: Conta = {
       email: `cliente-${randomUUID()}@loja.test`,

@@ -1,6 +1,6 @@
 # SaaS Loja do Andrigo
 
-Loja online de pods. Backend em Django e DRF, frontend em Vue, no mesmo
+BigPuffs, loja online de pods. Backend em Django e DRF, frontend em Vue, no mesmo
 repositório.
 
 ```
@@ -163,7 +163,7 @@ Com cobertura:
 cd frontend && npm run cobertura
 ```
 
-São 441 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
+São 461 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
 backend. O relatório falha abaixo dos limites configurados, que ficam um pouco
 abaixo do alcançado para não quebrar o CI a cada linha nova.
 
@@ -190,7 +190,8 @@ Playwright, põem o frontend de verdade contra o backend de verdade num
 navegador: entrar, continuar dentro depois de recarregar, sair, errar a senha,
 comprar do catálogo até o pedido registrado — conferindo que o total que a
 tela estima é o que o servidor cobra —, cancelar o pedido que espera
-pagamento, e a gestão movendo o pedido só pelos status que o servidor aceita.
+pagamento, a gestão movendo o pedido só pelos status que o servidor aceita, e
+a pergunta de idade na entrada e antes do carrinho.
 
 Na primeira vez, baixe o navegador:
 
@@ -334,7 +335,14 @@ proteção própria.
 - **Imagem de produto.** O backend não tem o campo. No lugar da foto, o
   produto aparece por cor: a categoria dá o matiz e o SKU dá o tom.
 - **Código de rastreio e frete real**, que dependem de transportadora.
-- **Verificação de idade, aceite de termos e o par exportar/apagar dados.**
+- **Aceite de termos e o par exportar/apagar dados.** Ficam para quando o
+  país de operação for definido: a lei de proteção de dados que vale depende
+  dele, e o texto dos termos também.
+
+A idade é declarada, não verificada: um pop-up pergunta se a pessoa tem 18
+anos ou mais ao entrar no site e de novo ao ir para o carrinho, uma vez por
+sessão do navegador. "Não" tira a pessoa do site. O backend não participa —
+não há o que ele confira num sim ou não.
 
 O cliente cancela o próprio pedido só enquanto ele espera pagamento. Depois
 de pago, cancelar exige estorno, que depende do gateway: aí quem cancela é a
@@ -343,7 +351,8 @@ loja, pelo fluxo de status da gestão.
 Endereço e frete estão modelados no formato brasileiro (CEP, UF, tabela por
 região) e a moeda está em BRL. Enquanto o país de operação não for definido,
 tudo segue esse padrão; a troca é por variável de ambiente no frontend
-(`VITE_MOEDA`, `VITE_LOCALE`) e por reescrita do módulo de frete no backend.
+(`VITE_MOEDA`, `VITE_LOCALE`, `VITE_IDADE_MINIMA`) e por reescrita do módulo de
+frete no backend.
 
 ## Antes de ir para produção
 

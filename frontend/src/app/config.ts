@@ -25,8 +25,16 @@ export const URL_DA_API = texto(import.meta.env.VITE_API_URL, 'http://localhost:
 /** Teto de espera por resposta. Acima disso a requisição vira erro de tempo. */
 export const TEMPO_LIMITE_MS = inteiro(import.meta.env.VITE_TIMEOUT_MS, 15_000)
 
-/** Nome exibido na interface. Provisório: a marca ainda não foi definida. */
-export const NOME_DA_LOJA = 'Loja de pods'
+/** Nome exibido na interface. */
+export const NOME_DA_LOJA = 'BigPuffs'
+
+/**
+ * Idade mínima para entrar e para comprar.
+ *
+ * Variável de ambiente pelo mesmo motivo da moeda: a regra depende do país de
+ * operação, que ainda não foi escolhido. O padrão é o brasileiro.
+ */
+export const IDADE_MINIMA = inteiro(import.meta.env.VITE_IDADE_MINIMA, 18)
 
 /**
  * Formato do dinheiro na tela.

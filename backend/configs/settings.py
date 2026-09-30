@@ -89,7 +89,7 @@ REST_FRAMEWORK = {
 # rota: vai para `schema.yml`, versionado, e o frontend gera os tipos dele. O
 # CI recusa o PR em que o arquivo não bate com o código.
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'SaaS Loja',
+    'TITLE': 'BigPuffs',
     'VERSION': '0.1.0',
     # Os serializers separam leitura de escrita: sem isto, campo `read_only`
     # sairia como opcional na resposta, e campo `write_only` apareceria nela.

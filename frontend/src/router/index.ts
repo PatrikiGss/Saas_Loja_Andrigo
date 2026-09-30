@@ -27,6 +27,11 @@ declare module 'vue-router' {
      * alguém chegasse aqui de outro jeito.
      */
     admin?: boolean
+    /**
+     * Pergunta a idade antes de entrar, uma vez por sessão: o carrinho e o
+     * fechamento, que é onde a compra acontece. Declaração, não proteção.
+     */
+    confirmaIdade?: boolean
   }
 }
 
@@ -53,7 +58,7 @@ const rotas: RouteRecordRaw[] = [
     path: '/carrinho',
     name: 'carrinho',
     component: () => import('@/modules/carrinho/views/CarrinhoView.vue'),
-    meta: { titulo: 'Carrinho', exigeAutenticacao: true },
+    meta: { titulo: 'Carrinho', exigeAutenticacao: true, confirmaIdade: true },
   },
   {
     path: '/pedidos',
@@ -71,7 +76,7 @@ const rotas: RouteRecordRaw[] = [
     path: '/checkout',
     name: 'checkout',
     component: () => import('@/modules/checkout/views/CheckoutView.vue'),
-    meta: { titulo: 'Fechar pedido', exigeAutenticacao: true },
+    meta: { titulo: 'Fechar pedido', exigeAutenticacao: true, confirmaIdade: true },
   },
   {
     path: '/entrar',

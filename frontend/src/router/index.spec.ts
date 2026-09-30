@@ -87,7 +87,16 @@ describe('rotas', () => {
     expect(document.title).toContain('Catálogo')
 
     await router.push('/carrinho')
-    expect(document.title).toContain('Carrinho')
+    expect(document.title).toBe('Carrinho — BigPuffs')
+  })
+
+  it('pergunta a idade antes do carrinho e do fechamento, e só lá', () => {
+    for (const caminho of ['/carrinho', '/checkout']) {
+      expect(rota(caminho).meta.confirmaIdade, caminho).toBe(true)
+    }
+    for (const caminho of ['/', '/catalogo', '/pedidos', '/conta', '/admin/pedidos']) {
+      expect(rota(caminho).meta.confirmaIdade, caminho).toBeUndefined()
+    }
   })
 
   it('carrega o componente de toda rota declarada', async () => {
