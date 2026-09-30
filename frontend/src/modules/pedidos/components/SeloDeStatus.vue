@@ -55,10 +55,6 @@ const forma = computed(() => {
 
 .selo--cancelado .selo__marca {
   border-color: var(--tinta-media);
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--tinta-media) 0 1px,
-    transparent 1px 3px
-  );
+  background: repeating-linear-gradient(-45deg, var(--tinta-media) 0 1px, transparent 1px 3px);
 }
 </style>

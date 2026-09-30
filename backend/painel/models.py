@@ -1,4 +1,5 @@
 """Contas, perfis e níveis de acesso."""
+
 from __future__ import annotations
 
 from django.conf import settings
@@ -96,7 +97,9 @@ class EmailPendente(models.Model):
 
     class Meta:
         ordering = ('criado_em',)
-        indexes = (models.Index(fields=('enviado_em', 'criado_em'), name='email_pendente_fila_idx'),)
+        indexes = (
+            models.Index(fields=('enviado_em', 'criado_em'), name='email_pendente_fila_idx'),
+        )
 
     def __str__(self) -> str:
         return f'{self.assunto} ({self.pk})'
@@ -166,7 +169,7 @@ CAMPOS_DE_ENDERECO = ('cep', 'logradouro', 'numero', 'complemento', 'bairro', 'c
 validar_cep = RegexValidator(r'^\d{8}$', 'Informe o CEP com 8 dígitos, apenas números.')
 
 
-def copiar_endereco(endereco: 'Endereco') -> dict:
+def copiar_endereco(endereco: Endereco) -> dict:
     """Cópia dos campos de entrega, para congelar no pedido."""
     return {campo: getattr(endereco, campo) for campo in CAMPOS_DE_ENDERECO}
 

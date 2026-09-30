@@ -85,9 +85,7 @@ async function limpar(): Promise<void> {
             {{ moeda(carrinho.total) }}
           </span>
         </p>
-        <p class="resumo__nota">
-          O frete depende do destino e é calculado no próximo passo.
-        </p>
+        <p class="resumo__nota">O frete depende do destino e é calculado no próximo passo.</p>
 
         <!-- Produto indisponível barra o fechamento porque o backend recusa o
              checkout com ele no carrinho; avisar aqui evita a viagem perdida. -->

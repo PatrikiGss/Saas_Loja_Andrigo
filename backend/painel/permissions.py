@@ -1,4 +1,5 @@
 """Permissões da aplicação, reutilizáveis pelas outras apps."""
+
 from __future__ import annotations
 
 from django.contrib.auth.models import AbstractBaseUser, AnonymousUser

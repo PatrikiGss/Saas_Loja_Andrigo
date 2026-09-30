@@ -144,7 +144,9 @@ async function mover(numero: string): Promise<void> {
               class="mover__select"
               :value="escolhas[item.numero] ?? ''"
               :disabled="emMudanca !== null"
-              @change="escolhas[item.numero] = ($event.target as HTMLSelectElement).value as StatusPedido"
+              @change="
+                escolhas[item.numero] = ($event.target as HTMLSelectElement).value as StatusPedido
+              "
             >
               <option value="" disabled>Escolha</option>
               <option
@@ -175,7 +177,9 @@ async function mover(numero: string): Promise<void> {
       :total="total"
       :por-pagina="POR_PAGINA"
       :desabilitado="carregando"
-      @ir-para="router.push({ name: 'admin-pedidos', query: $event > 1 ? { pagina: String($event) } : {} })"
+      @ir-para="
+        router.push({ name: 'admin-pedidos', query: $event > 1 ? { pagina: String($event) } : {} })
+      "
     />
   </template>
 </template>

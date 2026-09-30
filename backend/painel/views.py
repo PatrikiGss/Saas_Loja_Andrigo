@@ -1,10 +1,12 @@
 """Endpoints de conta, perfil e administração de usuários."""
+
 from __future__ import annotations
 
 from axes.utils import reset
 from django.contrib.auth import get_user_model
 from django.db.models import QuerySet
-from rest_framework import generics, mixins, permissions, status, viewsets
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, ValidationError
 from rest_framework.request import Request
@@ -25,6 +27,7 @@ from painel.serializers import (
     AlterarSenhaSerializer,
     AtivarContaSerializer,
     CadastroSerializer,
+    ContaCriadaSerializer,
     EnderecoSerializer,
     LoginSerializer,
     PerfilSerializer,
@@ -36,7 +39,12 @@ from painel.serializers import (
 
 Usuario = get_user_model()
 
+#: O que o login e a renovação devolvem no corpo. O refresh não aparece: ele
+#: sai pelo cookie httpOnly e nunca passa pelo JavaScript.
+ACESSO = inline_serializer('Acesso', {'access': serializers.CharField()})
 
+
+@extend_schema(responses={201: ContaCriadaSerializer})
 class CadastroView(generics.CreateAPIView):
     """Cria contas de nível usuário. Público, com limite de tentativas.
 
@@ -62,6 +70,7 @@ class AtivarContaView(generics.GenericAPIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'auth'
 
+    @extend_schema(responses={204: None})
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -84,6 +93,7 @@ class LoginView(TokenObtainPairView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'auth'
 
+    @extend_schema(responses=ACESSO)
     def post(self, request: Request, *args, **kwargs) -> Response:
         resposta = super().post(request, *args, **kwargs)
 
@@ -108,6 +118,7 @@ class RefreshView(TokenRefreshView):
     serializer_class = RefreshSerializer
     permission_classes = (permissions.AllowAny,)
 
+    @extend_schema(request=None, responses=ACESSO)
     def post(self, request: Request, *args, **kwargs) -> Response:
         entrada = self.get_serializer(data={'refresh': cookies.ler(request) or ''})
 
@@ -145,6 +156,7 @@ class LogoutView(APIView):
 
     permission_classes = (permissions.AllowAny,)
 
+    @extend_schema(request=None, responses={204: None})
     def post(self, request: Request) -> Response:
         resposta = Response(status=status.HTTP_204_NO_CONTENT)
         cookies.apagar(resposta)
@@ -185,6 +197,7 @@ class AlterarSenhaView(generics.GenericAPIView):
     serializer_class = AlterarSenhaSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(responses={204: None})
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -209,6 +222,7 @@ class RecuperarSenhaView(generics.GenericAPIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'auth'
 
+    @extend_schema(responses={204: None})
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -230,6 +244,7 @@ class RedefinirSenhaView(generics.GenericAPIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'auth'
 
+    @extend_schema(responses={204: None})
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -251,6 +266,9 @@ class EnderecoViewSet(viewsets.ModelViewSet):
 
     serializer_class = EnderecoSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    # Só aponta o modelo para o gerador do esquema, que não tem conta para
+    # passar no filtro. Quem responde de verdade é o `get_queryset`.
+    queryset = Endereco.objects.none()
 
     def get_queryset(self) -> QuerySet[Endereco]:
         return Endereco.objects.filter(usuario=self.request.user)
@@ -284,6 +302,7 @@ class UsuarioViewSet(
             detalhes=f'ativo={serializer.instance.is_active}',
         )
 
+    @extend_schema(request=AlteracaoNivelSerializer, responses=AlteracaoNivelSerializer)
     @action(detail=True, methods=('post',), url_path='nivel', url_name='nivel')
     def alterar_nivel(self, request: Request, pk: str | None = None) -> Response:
         """Promove ou rebaixa uma conta.

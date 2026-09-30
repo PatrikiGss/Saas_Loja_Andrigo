@@ -8,6 +8,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { DadosDeEndereco } from '@/modules/enderecos/types'
 import { http } from './http'
 
 vi.mock('./http', () => ({
@@ -61,17 +62,17 @@ function paginaVazia() {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  get.mockResolvedValue(paginaVazia() as never)
-  post.mockResolvedValue({ data: {} } as never)
-  put.mockResolvedValue({ data: {} } as never)
-  patch.mockResolvedValue({ data: {} } as never)
-  remover.mockResolvedValue({ data: null } as never)
+  get.mockResolvedValue(paginaVazia())
+  post.mockResolvedValue({ data: {} })
+  put.mockResolvedValue({ data: {} })
+  patch.mockResolvedValue({ data: {} })
+  remover.mockResolvedValue({ data: null })
 })
 
 describe('autenticação', () => {
   it('bate nas rotas de /api/auth/ e desliga a renovação onde 401 é resposta', async () => {
     const auth = await import('@/modules/auth/services/auth')
-    post.mockResolvedValue({ data: { access: 'token' } } as never)
+    post.mockResolvedValue({ data: { access: 'token' } })
 
     await auth.autenticar({ email: 'a@b.c', password: 'x' })
     expect(post).toHaveBeenCalledWith(
@@ -121,7 +122,7 @@ describe('autenticação', () => {
       nova_senha: 'nova',
     })
 
-    get.mockResolvedValue({ data: { email: 'a@b.c', nivel: 'usuario' } } as never)
+    get.mockResolvedValue({ data: { email: 'a@b.c', nivel: 'usuario' } })
     await auth.buscarPerfil()
     expect(get).toHaveBeenCalledWith('/perfil/')
   })
@@ -136,7 +137,7 @@ describe('catálogo', () => {
       params: { categoria: 'essencia', page: '2' },
     })
 
-    get.mockResolvedValue({ data: PRODUTO } as never)
+    get.mockResolvedValue({ data: PRODUTO })
     await catalogo.buscarProduto('uuid-1')
     expect(get).toHaveBeenCalledWith('/produtos/uuid-1/')
   })
@@ -154,15 +155,15 @@ describe('carrinho', () => {
   it('bate nas rotas de item e de coleção', async () => {
     const carrinho = await import('@/modules/carrinho/services/carrinho')
 
-    get.mockResolvedValue({ data: { itens: [], total: '0' } } as never)
+    get.mockResolvedValue({ data: { itens: [], total: '0' } })
     await carrinho.buscarCarrinho()
     expect(get).toHaveBeenCalledWith('/carrinho/')
 
-    post.mockResolvedValue({ data: ITEM_DE_CARRINHO } as never)
+    post.mockResolvedValue({ data: ITEM_DE_CARRINHO })
     await carrinho.adicionarItem('uuid-1', 2)
     expect(post).toHaveBeenCalledWith('/carrinho/itens/', { produto: 'uuid-1', quantidade: 2 })
 
-    patch.mockResolvedValue({ data: ITEM_DE_CARRINHO } as never)
+    patch.mockResolvedValue({ data: ITEM_DE_CARRINHO })
     await carrinho.alterarQuantidade(7, 3)
     expect(patch).toHaveBeenCalledWith('/carrinho/itens/7/', { quantidade: 3 })
 
@@ -178,7 +179,7 @@ describe('carrinho', () => {
 describe('endereços e CEP', () => {
   it('bate nas rotas e manda o CEP só com dígitos', async () => {
     const enderecos = await import('@/modules/enderecos/services/enderecos')
-    const dados = {
+    const dados: DadosDeEndereco = {
       apelido: 'Casa',
       cep: '01001000',
       logradouro: 'Praça da Sé',
@@ -201,7 +202,7 @@ describe('endereços e CEP', () => {
     await enderecos.removerEndereco(3)
     expect(remover).toHaveBeenCalledWith('/enderecos/3/')
 
-    get.mockResolvedValue({ data: {} } as never)
+    get.mockResolvedValue({ data: {} })
     await enderecos.consultarCep('01001-000')
     expect(get).toHaveBeenCalledWith('/cep/01001000/')
   })
@@ -211,11 +212,11 @@ describe('checkout', () => {
   it('manda só o id do endereço e o identificador do serviço', async () => {
     const checkout = await import('@/modules/checkout/services/checkout')
 
-    post.mockResolvedValue({ data: [] } as never)
+    post.mockResolvedValue({ data: [] })
     await checkout.cotarFrete(3)
     expect(post).toHaveBeenCalledWith('/frete/cotacao/', { endereco: 3 })
 
-    post.mockResolvedValue({ data: PEDIDO } as never)
+    post.mockResolvedValue({ data: PEDIDO })
     await checkout.fecharPedido(3, 'expresso')
     expect(post).toHaveBeenCalledWith('/checkout/', { endereco: 3, servico: 'expresso' })
   })
@@ -225,7 +226,7 @@ describe('perfil', () => {
   it('lê e atualiza sem id na URL', async () => {
     const perfil = await import('@/modules/perfil/services/perfil')
 
-    get.mockResolvedValue({ data: { email: 'a@b.c', nivel: 'usuario' } } as never)
+    get.mockResolvedValue({ data: { email: 'a@b.c', nivel: 'usuario' } })
     await perfil.buscarPerfil()
     expect(get).toHaveBeenCalledWith('/perfil/')
 
@@ -241,11 +242,11 @@ describe('gestão', () => {
     await produtos.listarProdutos({ busca: 'menta' })
     expect(get).toHaveBeenCalledWith('/produtos/', { params: { search: 'menta' } })
 
-    get.mockResolvedValue({ data: PRODUTO } as never)
+    get.mockResolvedValue({ data: PRODUTO })
     await produtos.buscarProduto('uuid-1')
     expect(get).toHaveBeenCalledWith('/produtos/uuid-1/')
 
-    post.mockResolvedValue({ data: { estoque: 5 } } as never)
+    post.mockResolvedValue({ data: { estoque: 5 } })
     expect(await produtos.ajustarEstoque('uuid-1', -2)).toBe(5)
     expect(post).toHaveBeenCalledWith('/produtos/uuid-1/estoque/', { delta: -2 })
 
@@ -285,7 +286,7 @@ describe('gestão', () => {
     expect(patch).toHaveBeenCalledWith('/usuarios/4/', { ativo: false })
 
     // Mudar privilégio tem endpoint próprio no backend.
-    post.mockResolvedValue({ data: { nivel: 'admin' } } as never)
+    post.mockResolvedValue({ data: { nivel: 'admin' } })
     expect(await usuarios.definirNivel(4, 'admin')).toBe('admin')
     expect(post).toHaveBeenCalledWith('/usuarios/4/nivel/', { nivel: 'admin' })
   })
@@ -293,7 +294,7 @@ describe('gestão', () => {
   it('move o pedido pelo número, não por id', async () => {
     const pedidos = await import('@/modules/admin/services/pedidos')
 
-    post.mockResolvedValue({ data: PEDIDO } as never)
+    post.mockResolvedValue({ data: PEDIDO })
     await pedidos.alterarStatus('PED-20260919-ABCDEF', 'pago')
 
     expect(post).toHaveBeenCalledWith('/pedidos/PED-20260919-ABCDEF/status/', { status: 'pago' })

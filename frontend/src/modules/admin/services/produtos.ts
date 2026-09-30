@@ -9,7 +9,7 @@
 import { http } from '@/services/http'
 import type { FiltrosDoCatalogo } from '@/modules/loja/types'
 import { comoQuery } from '@/modules/loja/services/catalogo'
-import type { Paginado } from '@/types/api'
+import type { Esquema, Paginado } from '@/types/api'
 import type { DadosDeProduto, ProdutoGestao } from '../types'
 
 export async function listarProdutos(
@@ -31,10 +31,7 @@ export async function criarProduto(dados: DadosDeProduto): Promise<ProdutoGestao
   return data
 }
 
-export async function atualizarProduto(
-  id: string,
-  dados: DadosDeProduto,
-): Promise<ProdutoGestao> {
+export async function atualizarProduto(id: string, dados: DadosDeProduto): Promise<ProdutoGestao> {
   const { data } = await http.put<ProdutoGestao>(`/produtos/${id}/`, dados)
   return data
 }
@@ -56,6 +53,8 @@ export async function removerProduto(id: string): Promise<void> {
  * disponível é recusada com 400.
  */
 export async function ajustarEstoque(id: string, delta: number): Promise<number> {
-  const { data } = await http.post<{ estoque: number }>(`/produtos/${id}/estoque/`, { delta })
+  const { data } = await http.post<Esquema<'EstoqueAjustado'>>(`/produtos/${id}/estoque/`, {
+    delta,
+  } satisfies Esquema<'AjusteEstoqueRequest'>)
   return data.estoque
 }

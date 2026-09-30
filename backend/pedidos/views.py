@@ -1,9 +1,11 @@
 """Endpoints de checkout, pedidos, frete e CEP."""
+
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db import transaction
 from django.db.models import QuerySet
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, ValidationError
@@ -44,6 +46,7 @@ class CheckoutView(generics.GenericAPIView):
     throttle_classes = (ScopedRateThrottle,)
     throttle_scope = 'pedido'
 
+    @extend_schema(responses={201: PedidoSerializer})
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -73,6 +76,9 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PedidoSerializer
     permission_classes = (permissions.IsAuthenticated,)
     lookup_field = 'numero'
+    # Só aponta o modelo para o gerador do esquema, que não tem conta para
+    # passar no filtro. Quem responde de verdade é o `get_queryset`.
+    queryset = Pedido.objects.none()
 
     def get_queryset(self) -> QuerySet[Pedido]:
         pedidos = Pedido.objects.select_related('entrega').prefetch_related('itens')
@@ -80,6 +86,7 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
             return pedidos
         return pedidos.filter(usuario=self.request.user)
 
+    @extend_schema(request=AlteracaoStatusSerializer, responses=PedidoSerializer)
     @action(
         detail=True,
         methods=('post',),
@@ -113,7 +120,11 @@ class CotacaoFreteView(generics.GenericAPIView):
 
     serializer_class = CotacaoFreteSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    # A resposta é a lista inteira de opções, sem página. Sem isto o esquema
+    # herdaria a paginação padrão e anunciaria uma página que não existe.
+    pagination_class = None
 
+    @extend_schema(responses=OpcaoFreteSerializer(many=True))
     def post(self, request: Request) -> Response:
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)

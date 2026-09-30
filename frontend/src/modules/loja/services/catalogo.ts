@@ -43,9 +43,7 @@ export function comoQuery(filtros: FiltrosDoCatalogo): Record<string, string> {
 }
 
 /** `GET /api/produtos/` — público, 20 por página. */
-export async function listarProdutos(
-  filtros: FiltrosDoCatalogo = {},
-): Promise<Paginado<Produto>> {
+export async function listarProdutos(filtros: FiltrosDoCatalogo = {}): Promise<Paginado<Produto>> {
   const { data } = await http.get<Paginado<Produto>>('/produtos/', {
     params: comoQuery(filtros),
   })

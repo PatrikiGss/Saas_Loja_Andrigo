@@ -7,6 +7,7 @@
  */
 import { http } from '@/services/http'
 import type { Pedido, StatusPedido } from '@/modules/pedidos/types'
+import type { Esquema } from '@/types/api'
 
 /**
  * `POST /api/pedidos/<numero>/status/`.
@@ -15,6 +16,8 @@ import type { Pedido, StatusPedido } from '@/modules/pedidos/types'
  * 400 e a mensagem dizendo de onde para onde não dá.
  */
 export async function alterarStatus(numero: string, status: StatusPedido): Promise<Pedido> {
-  const { data } = await http.post<Pedido>(`/pedidos/${numero}/status/`, { status })
+  const { data } = await http.post<Pedido>(`/pedidos/${numero}/status/`, {
+    status,
+  } satisfies Esquema<'AlteracaoStatusRequest'>)
   return data
 }

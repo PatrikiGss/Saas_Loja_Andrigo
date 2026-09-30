@@ -1,0 +1,2518 @@
+openapi: 3.0.3
+info:
+  title: SaaS Loja
+  version: 0.1.0
+paths:
+  /api/auth/ativar/:
+    post:
+      operationId: auth_ativar_create
+      description: Confirma o e-mail do cadastro e libera a conta.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtivarContaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AtivarContaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AtivarContaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/auth/cadastro/:
+    post:
+      operationId: auth_cadastro_create
+      description: |-
+        Cria contas de nível usuário. Público, com limite de tentativas.
+
+        A conta nasce desativada e só passa a funcionar depois que a pessoa
+        confirma o e-mail, o que encarece a criação de conta em massa.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CadastroRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CadastroRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContaCriada'
+          description: ''
+  /api/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        Emite o access token no corpo e o refresh em cookie httpOnly.
+
+        Duas barreiras contra força bruta: o limite por minuto, que é por IP, e o
+        bloqueio por conta depois de algumas senhas erradas.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Acesso'
+          description: ''
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: |-
+        Encerra a sessão: derruba o refresh e apaga o cookie.
+
+        Aberta de propósito. O access token pode já ter expirado quando a pessoa
+        clica em sair, e exigir autenticação aqui deixaria o cookie pendurado
+        justamente no caso em que ele mais precisa sumir.
+      tags:
+      - auth
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/auth/refresh/:
+    post:
+      operationId: auth_refresh_create
+      description: |-
+        Renova o access token a partir do cookie.
+
+        O refresh não vem do corpo e não volta no corpo: entra e sai pelo cookie
+        httpOnly, então nenhuma linha de JavaScript encosta nele. Conta apagada
+        responde 401, e não erro 500.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Acesso'
+          description: ''
+  /api/auth/senha/:
+    post:
+      operationId: auth_senha_create
+      description: |-
+        Troca de senha da própria conta.
+
+        Depois da troca, os refresh tokens em circulação são invalidados: quem
+        tiver roubado um deixa de conseguir renovar o acesso.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlterarSenhaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlterarSenhaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlterarSenhaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/auth/senha/recuperar/:
+    post:
+      operationId: auth_senha_recuperar_create
+      description: |-
+        Pede o link de recuperação.
+
+        A resposta é 204 exista ou não a conta, então este endpoint não serve
+        para descobrir quem tem cadastro.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecuperarSenhaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RecuperarSenhaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RecuperarSenhaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/auth/senha/redefinir/:
+    post:
+      operationId: auth_senha_redefinir_create
+      description: Define a nova senha a partir do link recebido por e-mail.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedefinirSenhaRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RedefinirSenhaRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RedefinirSenhaRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/carrinho/:
+    get:
+      operationId: carrinho_retrieve
+      description: Carrinho da conta autenticada, criado no primeiro acesso.
+      tags:
+      - carrinho
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Carrinho'
+          description: ''
+  /api/carrinho/itens/:
+    post:
+      operationId: carrinho_itens_create
+      description: Adiciona o produto. Produto repetido soma à quantidade do item.
+      tags:
+      - carrinho
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdicionarItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AdicionarItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AdicionarItemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemCarrinho'
+          description: ''
+    delete:
+      operationId: carrinho_itens_limpar
+      description: Esvazia o carrinho. O carrinho em si continua existindo.
+      tags:
+      - carrinho
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/carrinho/itens/{id}/:
+    get:
+      operationId: carrinho_itens_retrieve
+      description: |-
+        Item do próprio carrinho.
+
+        A consulta já nasce restrita à conta autenticada: o item de outra pessoa
+        não existe aqui, então a resposta é 404 e nada é confirmado sobre ele.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - carrinho
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemCarrinho'
+          description: ''
+    put:
+      operationId: carrinho_itens_update
+      description: |-
+        Item do próprio carrinho.
+
+        A consulta já nasce restrita à conta autenticada: o item de outra pessoa
+        não existe aqui, então a resposta é 404 e nada é confirmado sobre ele.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - carrinho
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuantidadeItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuantidadeItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuantidadeItemRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemCarrinho'
+          description: ''
+    patch:
+      operationId: carrinho_itens_partial_update
+      description: |-
+        Item do próprio carrinho.
+
+        A consulta já nasce restrita à conta autenticada: o item de outra pessoa
+        não existe aqui, então a resposta é 404 e nada é confirmado sobre ele.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - carrinho
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedQuantidadeItemRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedQuantidadeItemRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedQuantidadeItemRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemCarrinho'
+          description: ''
+    delete:
+      operationId: carrinho_itens_destroy
+      description: |-
+        Item do próprio carrinho.
+
+        A consulta já nasce restrita à conta autenticada: o item de outra pessoa
+        não existe aqui, então a resposta é 404 e nada é confirmado sobre ele.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - carrinho
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/cep/{cep}/:
+    get:
+      operationId: cep_retrieve
+      description: Consulta de CEP feita pelo backend, com limite por minuto.
+      parameters:
+      - in: path
+        name: cep
+        schema:
+          type: string
+        required: true
+      tags:
+      - cep
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnderecoConsultado'
+          description: ''
+  /api/checkout/:
+    post:
+      operationId: checkout_create
+      description: Fecha o carrinho e devolve o pedido.
+      tags:
+      - checkout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pedido'
+          description: ''
+  /api/enderecos/:
+    get:
+      operationId: enderecos_list
+      description: |-
+        Endereços do cliente.
+
+        A consulta nasce restrita à conta autenticada, então o endereço de outra
+        pessoa não existe aqui: a resposta é 404.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - enderecos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEnderecoList'
+          description: ''
+    post:
+      operationId: enderecos_create
+      description: |-
+        Endereços do cliente.
+
+        A consulta nasce restrita à conta autenticada, então o endereço de outra
+        pessoa não existe aqui: a resposta é 404.
+      tags:
+      - enderecos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnderecoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EnderecoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EnderecoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endereco'
+          description: ''
+  /api/enderecos/{id}/:
+    get:
+      operationId: enderecos_retrieve
+      description: |-
+        Endereços do cliente.
+
+        A consulta nasce restrita à conta autenticada, então o endereço de outra
+        pessoa não existe aqui: a resposta é 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this endereco.
+        required: true
+      tags:
+      - enderecos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endereco'
+          description: ''
+    put:
+      operationId: enderecos_update
+      description: |-
+        Endereços do cliente.
+
+        A consulta nasce restrita à conta autenticada, então o endereço de outra
+        pessoa não existe aqui: a resposta é 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this endereco.
+        required: true
+      tags:
+      - enderecos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnderecoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EnderecoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EnderecoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endereco'
+          description: ''
+    patch:
+      operationId: enderecos_partial_update
+      description: |-
+        Endereços do cliente.
+
+        A consulta nasce restrita à conta autenticada, então o endereço de outra
+        pessoa não existe aqui: a resposta é 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this endereco.
+        required: true
+      tags:
+      - enderecos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedEnderecoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedEnderecoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedEnderecoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Endereco'
+          description: ''
+    delete:
+      operationId: enderecos_destroy
+      description: |-
+        Endereços do cliente.
+
+        A consulta nasce restrita à conta autenticada, então o endereço de outra
+        pessoa não existe aqui: a resposta é 404.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this endereco.
+        required: true
+      tags:
+      - enderecos
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/frete/cotacao/:
+    post:
+      operationId: frete_cotacao_create
+      description: Opções de frete para o carrinho da conta e um endereço dela.
+      tags:
+      - frete
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CotacaoFreteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CotacaoFreteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CotacaoFreteRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OpcaoFrete'
+          description: ''
+  /api/pedidos/:
+    get:
+      operationId: pedidos_list
+      description: |-
+        Pedidos.
+
+        O cliente enxerga os seus; admin enxerga todos, que é a política
+        administrativa que o projeto já usa no catálogo.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - pedidos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPedidoList'
+          description: ''
+  /api/pedidos/{numero}/:
+    get:
+      operationId: pedidos_retrieve
+      description: |-
+        Pedidos.
+
+        O cliente enxerga os seus; admin enxerga todos, que é a política
+        administrativa que o projeto já usa no catálogo.
+      parameters:
+      - in: path
+        name: numero
+        schema:
+          type: string
+        required: true
+      tags:
+      - pedidos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pedido'
+          description: ''
+  /api/pedidos/{numero}/status/:
+    post:
+      operationId: pedidos_status_create
+      description: Move o pedido no fluxo. Só admin, e só transição prevista.
+      parameters:
+      - in: path
+        name: numero
+        schema:
+          type: string
+        required: true
+      tags:
+      - pedidos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoStatusRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlteracaoStatusRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlteracaoStatusRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pedido'
+          description: ''
+  /api/perfil/:
+    get:
+      operationId: perfil_retrieve
+      description: |-
+        Perfil da conta autenticada.
+
+        Não existe id na URL: o objeto vem do token, então não há recurso de outra
+        pessoa para pedir.
+      tags:
+      - perfil
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+          description: ''
+    put:
+      operationId: perfil_update
+      description: |-
+        Perfil da conta autenticada.
+
+        Não existe id na URL: o objeto vem do token, então não há recurso de outra
+        pessoa para pedir.
+      tags:
+      - perfil
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PerfilRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PerfilRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+          description: ''
+    patch:
+      operationId: perfil_partial_update
+      description: |-
+        Perfil da conta autenticada.
+
+        Não existe id na URL: o objeto vem do token, então não há recurso de outra
+        pessoa para pedir.
+      tags:
+      - perfil
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPerfilRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPerfilRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPerfilRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Perfil'
+          description: ''
+  /api/produtos/:
+    get:
+      operationId: produtos_list
+      description: |-
+        Catálogo de produtos.
+
+        O cliente lê os produtos ativos com os campos públicos; a equipe lê o
+        catálogo inteiro e cadastra. O estoque tem endpoint próprio.
+      parameters:
+      - in: query
+        name: categoria
+        schema:
+          type: string
+          enum:
+          - essencia
+          - pod_descartavel
+          - pod_recarregavel
+          - vape
+          - vaporizador_ervas
+      - in: query
+        name: ordering
+        schema:
+          type: string
+          enum:
+          - -criado_em
+          - -nome
+          - -preco
+          - criado_em
+          - nome
+          - preco
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: subtipo
+        schema:
+          type: string
+        description: Slug do subtipo.
+      tags:
+      - produtos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProdutoConformeQuemPerguntaList'
+          description: ''
+    post:
+      operationId: produtos_create
+      description: |-
+        Catálogo de produtos.
+
+        O cliente lê os produtos ativos com os campos públicos; a equipe lê o
+        catálogo inteiro e cadastra. O estoque tem endpoint próprio.
+      tags:
+      - produtos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProdutoGestaoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProdutoGestaoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProdutoGestaoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProdutoGestao'
+          description: ''
+  /api/produtos/{id}/:
+    get:
+      operationId: produtos_retrieve
+      description: |-
+        Catálogo de produtos.
+
+        O cliente lê os produtos ativos com os campos públicos; a equipe lê o
+        catálogo inteiro e cadastra. O estoque tem endpoint próprio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this produto.
+        required: true
+      tags:
+      - produtos
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProdutoConformeQuemPergunta'
+          description: ''
+    put:
+      operationId: produtos_update
+      description: |-
+        Catálogo de produtos.
+
+        O cliente lê os produtos ativos com os campos públicos; a equipe lê o
+        catálogo inteiro e cadastra. O estoque tem endpoint próprio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this produto.
+        required: true
+      tags:
+      - produtos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProdutoGestaoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProdutoGestaoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProdutoGestaoRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProdutoGestao'
+          description: ''
+    patch:
+      operationId: produtos_partial_update
+      description: |-
+        Catálogo de produtos.
+
+        O cliente lê os produtos ativos com os campos públicos; a equipe lê o
+        catálogo inteiro e cadastra. O estoque tem endpoint próprio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this produto.
+        required: true
+      tags:
+      - produtos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedProdutoGestaoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedProdutoGestaoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedProdutoGestaoRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProdutoGestao'
+          description: ''
+    delete:
+      operationId: produtos_destroy
+      description: |-
+        Catálogo de produtos.
+
+        O cliente lê os produtos ativos com os campos públicos; a equipe lê o
+        catálogo inteiro e cadastra. O estoque tem endpoint próprio.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this produto.
+        required: true
+      tags:
+      - produtos
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/produtos/{id}/estoque/:
+    post:
+      operationId: produtos_estoque_create
+      description: Repõe ou dá baixa no estoque do produto.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this produto.
+        required: true
+      tags:
+      - produtos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AjusteEstoqueRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AjusteEstoqueRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AjusteEstoqueRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstoqueAjustado'
+          description: ''
+  /api/subtipos/:
+    get:
+      operationId: subtipos_list
+      description: Subtipos disponíveis, para montar os filtros do catálogo.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - subtipos
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSubtipoList'
+          description: ''
+  /api/subtipos/{slug}/:
+    get:
+      operationId: subtipos_retrieve
+      description: Subtipos disponíveis, para montar os filtros do catálogo.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - subtipos
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subtipo'
+          description: ''
+  /api/usuarios/:
+    get:
+      operationId: usuarios_list
+      description: |-
+        Administração de contas, exclusiva de admin.
+
+        Não expõe exclusão de conta: desativar é o suficiente e é reversível.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - usuarios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsuarioAdminList'
+          description: ''
+  /api/usuarios/{id}/:
+    get:
+      operationId: usuarios_retrieve
+      description: |-
+        Administração de contas, exclusiva de admin.
+
+        Não expõe exclusão de conta: desativar é o suficiente e é reversível.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - usuarios
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioAdmin'
+          description: ''
+    put:
+      operationId: usuarios_update
+      description: |-
+        Administração de contas, exclusiva de admin.
+
+        Não expõe exclusão de conta: desativar é o suficiente e é reversível.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - usuarios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioAdminRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UsuarioAdminRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UsuarioAdminRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioAdmin'
+          description: ''
+    patch:
+      operationId: usuarios_partial_update
+      description: |-
+        Administração de contas, exclusiva de admin.
+
+        Não expõe exclusão de conta: desativar é o suficiente e é reversível.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - usuarios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUsuarioAdminRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUsuarioAdminRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUsuarioAdminRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioAdmin'
+          description: ''
+  /api/usuarios/{id}/nivel/:
+    post:
+      operationId: usuarios_nivel_create
+      description: |-
+        Promove ou rebaixa uma conta.
+
+        Fica fora do PUT/PATCH de propósito: mudar privilégio é uma operação
+        própria, com proteção própria.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this user.
+        required: true
+      tags:
+      - usuarios
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlteracaoNivelRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AlteracaoNivelRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AlteracaoNivelRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlteracaoNivel'
+          description: ''
+components:
+  schemas:
+    Acesso:
+      type: object
+      properties:
+        access:
+          type: string
+      required:
+      - access
+    AdicionarItemRequest:
+      type: object
+      description: |-
+        Entrada da inclusão: só produto e quantidade.
+
+        O produto é procurado entre os ativos, então um id inativo ou inexistente
+        cai na mesma resposta e não conta o que existe no catálogo.
+      properties:
+        produto:
+          type: string
+          format: uuid
+        quantidade:
+          type: integer
+          maximum: 100
+          minimum: 1
+      required:
+      - produto
+      - quantidade
+    AjusteEstoqueRequest:
+      type: object
+      description: 'Entrada do ajuste de estoque: positivo repõe, negativo dá baixa.'
+      properties:
+        delta:
+          type: integer
+          maximum: 100000
+          minimum: -100000
+      required:
+      - delta
+    AlteracaoNivel:
+      type: object
+      description: Entrada da troca de nível, aceita somente de contas admin.
+      properties:
+        nivel:
+          $ref: '#/components/schemas/NivelEnum'
+      required:
+      - nivel
+    AlteracaoNivelRequest:
+      type: object
+      description: Entrada da troca de nível, aceita somente de contas admin.
+      properties:
+        nivel:
+          $ref: '#/components/schemas/NivelEnum'
+      required:
+      - nivel
+    AlteracaoStatusRequest:
+      type: object
+      description: Entrada da mudança de status, aceita somente de contas admin.
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusPedidoEnum'
+      required:
+      - status
+    AlterarSenhaRequest:
+      type: object
+      description: Troca de senha pela própria conta, com confirmação da senha atual.
+      properties:
+        senha_atual:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        nova_senha:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - nova_senha
+      - senha_atual
+    AtivarContaRequest:
+      type: object
+      description: Confirmação do e-mail pelo link do cadastro.
+      properties:
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 40
+        token:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - token
+      - uid
+    CadastroRequest:
+      type: object
+      description: |-
+        Cadastro público, que cria apenas contas de nível usuário.
+
+        É um `Serializer` e não um `ModelSerializer` de propósito: os únicos campos
+        que existem aqui são estes três, então nenhum payload alcança `is_staff`,
+        `is_superuser`, `groups` ou `user_permissions`.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+        nome:
+          type: string
+          default: ''
+          maxLength: 150
+      required:
+      - email
+      - password
+    Carrinho:
+      type: object
+      description: 'O carrinho inteiro. O dono não aparece: quem pergunta já é o dono.'
+      properties:
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemCarrinho'
+          readOnly: true
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+      required:
+      - itens
+      - total
+    CategoriaEnum:
+      enum:
+      - pod_descartavel
+      - pod_recarregavel
+      - vape
+      - essencia
+      - vaporizador_ervas
+      type: string
+      description: |-
+        * `pod_descartavel` - Pod descartável
+        * `pod_recarregavel` - Pod recarregável
+        * `vape` - Vape
+        * `essencia` - Essência
+        * `vaporizador_ervas` - Vaporizador de ervas
+    CheckoutRequest:
+      type: object
+      description: 'Entrada do checkout: endereço e serviço de frete, nada além disso.'
+      properties:
+        endereco:
+          type: integer
+        servico:
+          $ref: '#/components/schemas/ServicoFreteEnum'
+      required:
+      - endereco
+      - servico
+    ContaCriada:
+      type: object
+      description: 'Resposta do cadastro: o mínimo, e nunca a senha nem o hash dela.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        nome:
+          type: string
+          readOnly: true
+        nivel:
+          allOf:
+          - $ref: '#/components/schemas/NivelEnum'
+          readOnly: true
+        ativo:
+          type: boolean
+          readOnly: true
+      required:
+      - ativo
+      - email
+      - id
+      - nivel
+      - nome
+    CotacaoFreteRequest:
+      type: object
+      description: 'Entrada da cotação: só o destino.'
+      properties:
+        endereco:
+          type: integer
+      required:
+      - endereco
+    Endereco:
+      type: object
+      description: 'Endereço do cliente. O dono nunca vem do payload: vem do token.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        apelido:
+          type: string
+          maxLength: 30
+        cep:
+          type: string
+          pattern: ^\d{8}$
+          maxLength: 8
+        logradouro:
+          type: string
+          maxLength: 120
+        numero:
+          type: string
+          maxLength: 10
+        complemento:
+          type: string
+          maxLength: 60
+        bairro:
+          type: string
+          maxLength: 60
+        cidade:
+          type: string
+          maxLength: 60
+        uf:
+          $ref: '#/components/schemas/UFEnum'
+      required:
+      - apelido
+      - bairro
+      - cep
+      - cidade
+      - complemento
+      - id
+      - logradouro
+      - numero
+      - uf
+    EnderecoConsultado:
+      type: object
+      description: Saída da consulta de CEP.
+      properties:
+        cep:
+          type: string
+          readOnly: true
+        logradouro:
+          type: string
+          readOnly: true
+        complemento:
+          type: string
+          readOnly: true
+        bairro:
+          type: string
+          readOnly: true
+        cidade:
+          type: string
+          readOnly: true
+        uf:
+          type: string
+          readOnly: true
+      required:
+      - bairro
+      - cep
+      - cidade
+      - complemento
+      - logradouro
+      - uf
+    EnderecoDeEntrega:
+      type: object
+      description: Endereço como ele estava no dia da compra.
+      properties:
+        cep:
+          type: string
+          readOnly: true
+        logradouro:
+          type: string
+          readOnly: true
+        numero:
+          type: string
+          readOnly: true
+        complemento:
+          type: string
+          readOnly: true
+        bairro:
+          type: string
+          readOnly: true
+        cidade:
+          type: string
+          readOnly: true
+        uf:
+          allOf:
+          - $ref: '#/components/schemas/UFEnum'
+          readOnly: true
+      required:
+      - bairro
+      - cep
+      - cidade
+      - complemento
+      - logradouro
+      - numero
+      - uf
+    EnderecoRequest:
+      type: object
+      description: 'Endereço do cliente. O dono nunca vem do payload: vem do token.'
+      properties:
+        apelido:
+          type: string
+          maxLength: 30
+        cep:
+          type: string
+          minLength: 1
+          pattern: ^\d{8}$
+          maxLength: 8
+        logradouro:
+          type: string
+          minLength: 1
+          maxLength: 120
+        numero:
+          type: string
+          minLength: 1
+          maxLength: 10
+        complemento:
+          type: string
+          maxLength: 60
+        bairro:
+          type: string
+          minLength: 1
+          maxLength: 60
+        cidade:
+          type: string
+          minLength: 1
+          maxLength: 60
+        uf:
+          $ref: '#/components/schemas/UFEnum'
+      required:
+      - bairro
+      - cep
+      - cidade
+      - logradouro
+      - numero
+      - uf
+    EstoqueAjustado:
+      type: object
+      properties:
+        estoque:
+          type: integer
+      required:
+      - estoque
+    ItemCarrinho:
+      type: object
+      description: 'Leitura do item: preço e subtotal vêm do servidor.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        produto:
+          allOf:
+          - $ref: '#/components/schemas/ProdutoNoCarrinho'
+          readOnly: true
+        quantidade:
+          type: integer
+          readOnly: true
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+      required:
+      - id
+      - produto
+      - quantidade
+      - subtotal
+    ItemPedido:
+      type: object
+      description: Linha da compra. Tudo aqui é histórico e não muda mais.
+      properties:
+        sku:
+          type: string
+          readOnly: true
+        nome:
+          type: string
+          readOnly: true
+        preco_unitario:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        quantidade:
+          type: integer
+          readOnly: true
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+      required:
+      - nome
+      - preco_unitario
+      - quantidade
+      - sku
+      - subtotal
+    LoginRequest:
+      type: object
+      description: |-
+        Login por e-mail, usando o fluxo de token do simplejwt.
+
+        O token não carrega o nível da conta: quem decide autorização é o banco, a
+        cada requisição.
+      properties:
+        email:
+          type: string
+          format: email
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    NivelEnum:
+      enum:
+      - usuario
+      - admin
+      type: string
+      description: |-
+        * `usuario` - Usuário
+        * `admin` - Admin
+    OpcaoFrete:
+      type: object
+      description: Saída da cotação, como o frontend recebe.
+      properties:
+        servico:
+          allOf:
+          - $ref: '#/components/schemas/ServicoFreteEnum'
+          readOnly: true
+        nome:
+          type: string
+          readOnly: true
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        prazo_em_dias:
+          type: integer
+          readOnly: true
+      required:
+      - nome
+      - prazo_em_dias
+      - preco
+      - servico
+    PaginatedEnderecoList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Endereco'
+    PaginatedPedidoList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pedido'
+    PaginatedProdutoConformeQuemPerguntaList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProdutoConformeQuemPergunta'
+    PaginatedSubtipoList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subtipo'
+    PaginatedUsuarioAdminList:
+      type: object
+      required:
+      - count
+      - next
+      - previous
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsuarioAdmin'
+    PatchedEnderecoRequest:
+      type: object
+      description: 'Endereço do cliente. O dono nunca vem do payload: vem do token.'
+      properties:
+        apelido:
+          type: string
+          maxLength: 30
+        cep:
+          type: string
+          minLength: 1
+          pattern: ^\d{8}$
+          maxLength: 8
+        logradouro:
+          type: string
+          minLength: 1
+          maxLength: 120
+        numero:
+          type: string
+          minLength: 1
+          maxLength: 10
+        complemento:
+          type: string
+          maxLength: 60
+        bairro:
+          type: string
+          minLength: 1
+          maxLength: 60
+        cidade:
+          type: string
+          minLength: 1
+          maxLength: 60
+        uf:
+          $ref: '#/components/schemas/UFEnum'
+    PatchedPerfilRequest:
+      type: object
+      description: |-
+        Perfil da própria conta.
+
+        E-mail e nível são somente leitura: o e-mail identifica a conta no login e
+        o nível vive em `is_staff`, fora do alcance do cliente.
+      properties:
+        nome:
+          type: string
+          maxLength: 150
+        sobrenome:
+          type: string
+          maxLength: 150
+        telefone:
+          oneOf:
+          - type: string
+            pattern: ^\+?[0-9][0-9 ()-]{7,19}$
+            maxLength: 20
+          - type: string
+            maxLength: 0
+    PatchedProdutoGestaoRequest:
+      type: object
+      description: |-
+        Cadastro do produto pela equipe da loja.
+
+        `estoque` continua somente leitura aqui: ele muda apenas pelo endpoint de
+        ajuste, que registra a operação em uma única consulta atômica.
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          pattern: ^[A-Z0-9][A-Z0-9-]{3,31}$
+          maxLength: 32
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 120
+        descricao:
+          type: string
+          maxLength: 2000
+        marca:
+          type: string
+          minLength: 1
+          maxLength: 60
+        subtipo:
+          type: string
+          minLength: 1
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        puffs:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          nullable: true
+        volume_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        nicotina_mg_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          nullable: true
+        ativo:
+          type: boolean
+    PatchedQuantidadeItemRequest:
+      type: object
+      description: 'Alteração do item: a quantidade é o único campo do cliente.'
+      properties:
+        quantidade:
+          type: integer
+          maximum: 100
+          minimum: 1
+    PatchedUsuarioAdminRequest:
+      type: object
+      description: |-
+        Visão administrativa da conta.
+
+        Só `ativo` é editável por aqui. Nível tem endpoint próprio, e senha e hash
+        não aparecem em nenhuma hipótese.
+      properties:
+        ativo:
+          type: boolean
+    Pedido:
+      type: object
+      description: Pedido do cliente. Nada aqui é gravável pela API.
+      properties:
+        numero:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusPedidoEnum'
+          readOnly: true
+        status_pagamento:
+          allOf:
+          - $ref: '#/components/schemas/StatusPagamentoEnum'
+          readOnly: true
+        itens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemPedido'
+          readOnly: true
+        entrega:
+          allOf:
+          - $ref: '#/components/schemas/EnderecoDeEntrega'
+          readOnly: true
+        servico_frete:
+          allOf:
+          - $ref: '#/components/schemas/ServicoFreteEnum'
+          readOnly: true
+        prazo_frete_em_dias:
+          type: integer
+          readOnly: true
+        subtotal:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        frete:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        total:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          readOnly: true
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+        pago_em:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - criado_em
+      - entrega
+      - frete
+      - itens
+      - numero
+      - pago_em
+      - prazo_frete_em_dias
+      - servico_frete
+      - status
+      - status_pagamento
+      - subtotal
+      - total
+    Perfil:
+      type: object
+      description: |-
+        Perfil da própria conta.
+
+        E-mail e nível são somente leitura: o e-mail identifica a conta no login e
+        o nível vive em `is_staff`, fora do alcance do cliente.
+      properties:
+        email:
+          type: string
+          format: email
+          readOnly: true
+        nome:
+          type: string
+          maxLength: 150
+        sobrenome:
+          type: string
+          maxLength: 150
+        telefone:
+          oneOf:
+          - type: string
+            pattern: ^\+?[0-9][0-9 ()-]{7,19}$
+            maxLength: 20
+          - type: string
+            maxLength: 0
+        nivel:
+          allOf:
+          - $ref: '#/components/schemas/NivelEnum'
+          readOnly: true
+      required:
+      - email
+      - nivel
+      - nome
+      - sobrenome
+      - telefone
+    PerfilRequest:
+      type: object
+      description: |-
+        Perfil da própria conta.
+
+        E-mail e nível são somente leitura: o e-mail identifica a conta no login e
+        o nível vive em `is_staff`, fora do alcance do cliente.
+      properties:
+        nome:
+          type: string
+          maxLength: 150
+        sobrenome:
+          type: string
+          maxLength: 150
+        telefone:
+          oneOf:
+          - type: string
+            pattern: ^\+?[0-9][0-9 ()-]{7,19}$
+            maxLength: 20
+          - type: string
+            maxLength: 0
+    Produto:
+      type: object
+      description: 'Catálogo público: somente leitura.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sku:
+          type: string
+          readOnly: true
+        nome:
+          type: string
+          readOnly: true
+        descricao:
+          type: string
+          readOnly: true
+        marca:
+          type: string
+          readOnly: true
+        categoria:
+          allOf:
+          - $ref: '#/components/schemas/CategoriaEnum'
+          readOnly: true
+        subtipo:
+          type: string
+          readOnly: true
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          readOnly: true
+        em_estoque:
+          type: boolean
+          readOnly: true
+        puffs:
+          type: integer
+          readOnly: true
+          nullable: true
+        volume_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          readOnly: true
+          nullable: true
+        nicotina_mg_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          readOnly: true
+          nullable: true
+      required:
+      - categoria
+      - descricao
+      - em_estoque
+      - id
+      - marca
+      - nicotina_mg_ml
+      - nome
+      - preco
+      - puffs
+      - sku
+      - subtipo
+      - volume_ml
+    ProdutoConformeQuemPergunta:
+      oneOf:
+      - $ref: '#/components/schemas/Produto'
+      - $ref: '#/components/schemas/ProdutoGestao'
+    ProdutoGestao:
+      type: object
+      description: |-
+        Cadastro do produto pela equipe da loja.
+
+        `estoque` continua somente leitura aqui: ele muda apenas pelo endpoint de
+        ajuste, que registra a operação em uma única consulta atômica.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sku:
+          type: string
+          pattern: ^[A-Z0-9][A-Z0-9-]{3,31}$
+          maxLength: 32
+        nome:
+          type: string
+          maxLength: 120
+        descricao:
+          type: string
+          maxLength: 2000
+        marca:
+          type: string
+          maxLength: 60
+        categoria:
+          allOf:
+          - $ref: '#/components/schemas/CategoriaEnum'
+          readOnly: true
+        subtipo:
+          type: string
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        em_estoque:
+          type: boolean
+          readOnly: true
+        puffs:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          nullable: true
+        volume_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        nicotina_mg_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          nullable: true
+        estoque:
+          type: integer
+          readOnly: true
+        ativo:
+          type: boolean
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+        atualizado_em:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - ativo
+      - atualizado_em
+      - categoria
+      - criado_em
+      - descricao
+      - em_estoque
+      - estoque
+      - id
+      - marca
+      - nicotina_mg_ml
+      - nome
+      - preco
+      - puffs
+      - sku
+      - subtipo
+      - volume_ml
+    ProdutoGestaoRequest:
+      type: object
+      description: |-
+        Cadastro do produto pela equipe da loja.
+
+        `estoque` continua somente leitura aqui: ele muda apenas pelo endpoint de
+        ajuste, que registra a operação em uma única consulta atômica.
+      properties:
+        sku:
+          type: string
+          minLength: 1
+          pattern: ^[A-Z0-9][A-Z0-9-]{3,31}$
+          maxLength: 32
+        nome:
+          type: string
+          minLength: 1
+          maxLength: 120
+        descricao:
+          type: string
+          maxLength: 2000
+        marca:
+          type: string
+          minLength: 1
+          maxLength: 60
+        subtipo:
+          type: string
+          minLength: 1
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        puffs:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 1
+          format: int64
+          nullable: true
+        volume_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,2})?$
+          nullable: true
+        nicotina_mg_ml:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,1})?$
+          nullable: true
+        ativo:
+          type: boolean
+      required:
+      - marca
+      - nome
+      - preco
+      - sku
+      - subtipo
+    ProdutoNoCarrinho:
+      type: object
+      description: |-
+        O que o front precisa mostrar do produto dentro do carrinho.
+
+        `disponivel` resume o estado atual sem expor o estoque, que não é público
+        no catálogo.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sku:
+          type: string
+          pattern: ^[A-Z0-9][A-Z0-9-]{3,31}$
+          maxLength: 32
+        nome:
+          type: string
+          maxLength: 120
+        preco:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+        disponivel:
+          type: boolean
+          readOnly: true
+      required:
+      - disponivel
+      - id
+      - nome
+      - preco
+      - sku
+    QuantidadeItemRequest:
+      type: object
+      description: 'Alteração do item: a quantidade é o único campo do cliente.'
+      properties:
+        quantidade:
+          type: integer
+          maximum: 100
+          minimum: 1
+      required:
+      - quantidade
+    RecuperarSenhaRequest:
+      type: object
+      description: Pedido de recuperação. Só o e-mail, e a resposta é sempre a mesma.
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+      required:
+      - email
+    RedefinirSenhaRequest:
+      type: object
+      description: |-
+        Redefinição com o token do Django, que expira e vale uma vez.
+
+        O token é derivado do hash da senha atual: quando a senha muda, ele deixa
+        de valer sozinho, sem precisar de tabela de tokens usados.
+      properties:
+        uid:
+          type: string
+          minLength: 1
+          maxLength: 40
+        token:
+          type: string
+          minLength: 1
+          maxLength: 64
+        nova_senha:
+          type: string
+          writeOnly: true
+          minLength: 1
+          maxLength: 128
+      required:
+      - nova_senha
+      - token
+      - uid
+    ServicoFreteEnum:
+      enum:
+      - economico
+      - expresso
+      type: string
+      description: |-
+        * `economico` - Econômico
+        * `expresso` - Expresso
+    StatusPagamentoEnum:
+      enum:
+      - pendente
+      - pago
+      - estornado
+      type: string
+      description: |-
+        * `pendente` - Pendente
+        * `pago` - Pago
+        * `estornado` - Estornado
+    StatusPedidoEnum:
+      enum:
+      - aguardando_pagamento
+      - pago
+      - em_preparacao
+      - enviado
+      - entregue
+      - cancelado
+      type: string
+      description: |-
+        * `aguardando_pagamento` - Aguardando pagamento
+        * `pago` - Pago
+        * `em_preparacao` - Em preparação
+        * `enviado` - Enviado
+        * `entregue` - Entregue
+        * `cancelado` - Cancelado
+    Subtipo:
+      type: object
+      description: Subtipos do catálogo, usados como filtro.
+      properties:
+        slug:
+          type: string
+          readOnly: true
+          pattern: ^[-a-zA-Z0-9_]+$
+        nome:
+          type: string
+          readOnly: true
+        categoria:
+          allOf:
+          - $ref: '#/components/schemas/CategoriaEnum'
+          readOnly: true
+        categoria_display:
+          type: string
+          readOnly: true
+      required:
+      - categoria
+      - categoria_display
+      - nome
+      - slug
+    UFEnum:
+      enum:
+      - AC
+      - AL
+      - AM
+      - AP
+      - BA
+      - CE
+      - DF
+      - ES
+      - GO
+      - MA
+      - MG
+      - MS
+      - MT
+      - PA
+      - PB
+      - PE
+      - PI
+      - PR
+      - RJ
+      - RN
+      - RO
+      - RR
+      - RS
+      - SC
+      - SE
+      - SP
+      - TO
+      type: string
+      description: |-
+        * `AC` - Acre
+        * `AL` - Alagoas
+        * `AM` - Amazonas
+        * `AP` - Amapá
+        * `BA` - Bahia
+        * `CE` - Ceará
+        * `DF` - Distrito Federal
+        * `ES` - Espírito Santo
+        * `GO` - Goiás
+        * `MA` - Maranhão
+        * `MG` - Minas Gerais
+        * `MS` - Mato Grosso do Sul
+        * `MT` - Mato Grosso
+        * `PA` - Pará
+        * `PB` - Paraíba
+        * `PE` - Pernambuco
+        * `PI` - Piauí
+        * `PR` - Paraná
+        * `RJ` - Rio de Janeiro
+        * `RN` - Rio Grande do Norte
+        * `RO` - Rondônia
+        * `RR` - Roraima
+        * `RS` - Rio Grande do Sul
+        * `SC` - Santa Catarina
+        * `SE` - Sergipe
+        * `SP` - São Paulo
+        * `TO` - Tocantins
+    UsuarioAdmin:
+      type: object
+      description: |-
+        Visão administrativa da conta.
+
+        Só `ativo` é editável por aqui. Nível tem endpoint próprio, e senha e hash
+        não aparecem em nenhuma hipótese.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+          title: Email address
+        nome:
+          type: string
+          readOnly: true
+        sobrenome:
+          type: string
+          readOnly: true
+        telefone:
+          type: string
+          readOnly: true
+        nivel:
+          allOf:
+          - $ref: '#/components/schemas/NivelEnum'
+          readOnly: true
+        ativo:
+          type: boolean
+        criado_em:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - ativo
+      - criado_em
+      - email
+      - id
+      - nivel
+      - nome
+      - sobrenome
+      - telefone
+    UsuarioAdminRequest:
+      type: object
+      description: |-
+        Visão administrativa da conta.
+
+        Só `ativo` é editável por aqui. Nível tem endpoint próprio, e senha e hash
+        não aparecem em nenhuma hipótese.
+      properties:
+        ativo:
+          type: boolean
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

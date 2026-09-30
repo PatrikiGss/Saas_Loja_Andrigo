@@ -19,7 +19,13 @@ function pedido(numero: string, status: StatusPedido = 'aguardando_pagamento'): 
     status,
     status_pagamento: status === 'aguardando_pagamento' ? 'pendente' : 'pago',
     itens: [
-      { sku: 'SKU-1', nome: 'Pod de menta', preco_unitario: '49.90', quantidade: 2, subtotal: '99.80' },
+      {
+        sku: 'SKU-1',
+        nome: 'Pod de menta',
+        preco_unitario: '49.90',
+        quantidade: 2,
+        subtotal: '99.80',
+      },
     ],
     entrega: {
       cep: '01001000',

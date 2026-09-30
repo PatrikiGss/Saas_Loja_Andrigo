@@ -108,7 +108,10 @@ describe('SelecaoDeFrete', () => {
     const erro = new ErroDaApi('rede', 'Sem resposta da loja.', null, {})
 
     const frete = montarFrete({ erro })
-    await frete.findAll('button').find((b) => b.text().includes('Tentar de novo'))!.trigger('click')
+    await frete
+      .findAll('button')
+      .find((b) => b.text().includes('Tentar de novo'))!
+      .trigger('click')
 
     expect(frete.emitted('repetir')).toHaveLength(1)
   })

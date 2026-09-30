@@ -1,25 +1,15 @@
-/** Formas de conta e autenticação que o backend usa. */
+/** Formas de conta e autenticação, geradas do esquema do backend. */
+import type { Esquema } from '@/types/api'
 
-/** `Nivel.choices` do backend. O frontend só reflete: quem decide é a API. */
-export type Nivel = 'usuario' | 'admin'
+/** O frontend só reflete o nível: quem decide é a API. */
+export type Nivel = Esquema<'NivelEnum'>
 
 /** Resposta de `GET /api/perfil/` e de `PUT/PATCH` no mesmo endereço. */
-export interface Perfil {
-  email: string
-  nome: string
-  sobrenome: string
-  telefone: string
-  nivel: Nivel
-}
+export type Perfil = Esquema<'Perfil'>
 
-export interface Credenciais {
-  email: string
-  password: string
-}
+export type Credenciais = Esquema<'LoginRequest'>
 
-export interface DadosDeCadastro extends Credenciais {
-  nome: string
-}
+export type DadosDeCadastro = Esquema<'CadastroRequest'>
 
 /**
  * Corpo do login e do refresh.
@@ -27,12 +17,7 @@ export interface DadosDeCadastro extends Credenciais {
  * Só o access token: o refresh fica no cookie httpOnly e nunca chega ao
  * JavaScript, que é o motivo de ele não aparecer neste tipo.
  */
-export interface Acesso {
-  access: string
-}
+export type Acesso = Esquema<'Acesso'>
 
 /** Par que identifica a conta nos links de e-mail. */
-export interface CredenciaisDoLink {
-  uid: string
-  token: string
-}
+export type CredenciaisDoLink = Esquema<'AtivarContaRequest'>

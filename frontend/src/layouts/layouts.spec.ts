@@ -128,7 +128,10 @@ describe('LayoutLoja', () => {
     entrarComo('usuario')
     const { tela, router } = await montar(LayoutLoja, '/conta')
 
-    await tela.findAll('button').find((b) => b.text().includes('Sair'))!.trigger('click')
+    await tela
+      .findAll('button')
+      .find((b) => b.text().includes('Sair'))!
+      .trigger('click')
     await flushPromises()
 
     expect(servicoAuth.encerrarSessao).toHaveBeenCalledTimes(1)
@@ -182,7 +185,10 @@ describe('LayoutAdmin', () => {
     entrarComo('admin')
     const { tela, router } = await montar(LayoutAdmin, '/admin/produtos')
 
-    await tela.findAll('button').find((b) => b.text().includes('Sair'))!.trigger('click')
+    await tela
+      .findAll('button')
+      .find((b) => b.text().includes('Sair'))!
+      .trigger('click')
     await flushPromises()
 
     expect(useSessao().autenticado).toBe(false)

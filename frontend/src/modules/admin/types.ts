@@ -1,6 +1,5 @@
 /** Formas que a API expõe apenas para contas administrativas. */
-import type { Nivel } from '@/modules/auth/types'
-import type { Produto } from '@/modules/loja/types'
+import type { Esquema } from '@/types/api'
 
 /**
  * Produto como a equipe da loja o enxerga.
@@ -9,35 +8,10 @@ import type { Produto } from '@/modules/loja/types'
  * públicos. `estoque` é somente leitura aqui: ele muda pelo endpoint de
  * ajuste, que faz a conta no banco em uma consulta atômica.
  */
-export interface ProdutoGestao extends Produto {
-  estoque: number
-  ativo: boolean
-  criado_em: string
-  atualizado_em: string
-}
+export type ProdutoGestao = Esquema<'ProdutoGestao'>
 
 /** Campos que o cadastro de produto envia. */
-export interface DadosDeProduto {
-  sku: string
-  nome: string
-  descricao: string
-  marca: string
-  subtipo: string
-  preco: string
-  ativo: boolean
-  puffs: number | null
-  volume_ml: string | null
-  nicotina_mg_ml: string | null
-}
+export type DadosDeProduto = Esquema<'ProdutoGestaoRequest'>
 
 /** Resposta de `/api/usuarios/`. Só `ativo` é editável por ali. */
-export interface UsuarioAdmin {
-  id: number
-  email: string
-  nome: string
-  sobrenome: string
-  telefone: string
-  nivel: Nivel
-  ativo: boolean
-  criado_em: string
-}
+export type UsuarioAdmin = Esquema<'UsuarioAdmin'>

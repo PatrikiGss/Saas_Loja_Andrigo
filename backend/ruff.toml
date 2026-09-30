@@ -1,0 +1,33 @@
+# Lint e formatação do backend. De dentro de `backend/`:
+#
+#   ruff check .           aponta problema
+#   ruff check --fix .     corrige o que dá para corrigir sem pensar
+#   ruff format .          formata
+#
+# A largura é a mesma do Prettier no frontend: uma medida só no repositório.
+# As aspas simples são as que o código já usava antes do ruff chegar.
+line-length = 100
+target-version = 'py312'
+
+# Migration é gerada pelo Django, no formato dele. Formatar à mão o que a
+# próxima `makemigrations` vai escrever de outro jeito é só ruído no diff.
+extend-exclude = ['*/migrations/*']
+
+[lint]
+select = [
+    'E',    # pycodestyle
+    'W',    # pycodestyle, avisos
+    'F',    # pyflakes: nome não usado, não definido, import perdido
+    'I',    # ordem dos imports
+    'B',    # bugbear: armadilhas da linguagem, como default mutável em argumento
+    'UP',   # sintaxe antiga que a 3.12 já dispensa
+    'DJ',   # específicas do Django
+    'DTZ',  # datetime sem fuso, que o Django compara errado com USE_TZ ligado
+    'C4',   # compreensões desnecessárias
+    'PIE',  # código morto ou redundante
+]
+
+[format]
+# Docstring continua com aspas duplas: o ruff segue a PEP 257 ali, e é o que o
+# código já faz.
+quote-style = 'single'

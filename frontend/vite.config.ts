@@ -27,9 +27,15 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'text-summary'],
       include: ['src/**/*.{ts,vue}'],
-      // Fora da conta só o que não tem comportamento: declaração de tipo e a
-      // partida da aplicação.
-      exclude: ['src/**/*.spec.ts', 'src/**/types.ts', 'src/main.ts', 'src/env.d.ts'],
+      // Fora da conta só o que não tem comportamento: declaração de tipo,
+      // gerada ou não, e a partida da aplicação.
+      exclude: [
+        'src/**/*.spec.ts',
+        'src/**/types.ts',
+        'src/types/esquema.ts',
+        'src/main.ts',
+        'src/env.d.ts',
+      ],
       // Os limites ficam um pouco abaixo do que a suíte alcança, para impedir
       // regressão sem quebrar o CI a cada linha nova. Subir isto significa
       // escrever teste, não afrouxar o `exclude`.

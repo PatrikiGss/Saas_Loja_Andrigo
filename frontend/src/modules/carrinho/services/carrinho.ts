@@ -7,6 +7,7 @@
  */
 import { objetoCom } from '@/services/conferencia'
 import { http } from '@/services/http'
+import type { Esquema } from '@/types/api'
 import type { Carrinho, ItemCarrinho } from '../types'
 
 /** Mínimo de que a tela do carrinho depende para desenhar uma linha. */
@@ -28,7 +29,10 @@ export async function buscarCarrinho(): Promise<Carrinho> {
  * 400 e a mensagem do domínio.
  */
 export async function adicionarItem(produto: string, quantidade: number): Promise<ItemCarrinho> {
-  const { data } = await http.post<ItemCarrinho>('/carrinho/itens/', { produto, quantidade })
+  const { data } = await http.post<ItemCarrinho>('/carrinho/itens/', {
+    produto,
+    quantidade,
+  } satisfies Esquema<'AdicionarItemRequest'>)
   return objetoCom<ItemCarrinho>(data, CAMPOS_DO_ITEM)
 }
 
@@ -39,7 +43,9 @@ export async function adicionarItem(produto: string, quantidade: number): Promis
  * há o que conferir aqui.
  */
 export async function alterarQuantidade(item: number, quantidade: number): Promise<ItemCarrinho> {
-  const { data } = await http.patch<ItemCarrinho>(`/carrinho/itens/${item}/`, { quantidade })
+  const { data } = await http.patch<ItemCarrinho>(`/carrinho/itens/${item}/`, {
+    quantidade,
+  } satisfies Esquema<'PatchedQuantidadeItemRequest'>)
   return objetoCom<ItemCarrinho>(data, CAMPOS_DO_ITEM)
 }
 

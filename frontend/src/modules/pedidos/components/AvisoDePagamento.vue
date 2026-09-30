@@ -18,8 +18,8 @@ defineProps<{ pedido: Pedido }>()
   <div v-if="pedido.status_pagamento === 'pendente'" class="aviso">
     <p class="aviso__estado">Pagamento {{ TEXTO_DO_PAGAMENTO.pendente.toLowerCase() }}</p>
     <p class="aviso__texto">
-      O pagamento ainda não está disponível nesta loja. Seu pedido fica guardado com estes
-      valores até que o pagamento seja liberado.
+      O pagamento ainda não está disponível nesta loja. Seu pedido fica guardado com estes valores
+      até que o pagamento seja liberado.
     </p>
   </div>
 </template>

@@ -13,12 +13,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import {
-  autenticar,
-  buscarPerfil,
-  encerrarSessao,
-  renovarAcesso,
-} from '../services/auth'
+import { autenticar, buscarPerfil, encerrarSessao, renovarAcesso } from '../services/auth'
 import type { Credenciais, Perfil } from '../types'
 
 export const useSessao = defineStore('sessao', () => {

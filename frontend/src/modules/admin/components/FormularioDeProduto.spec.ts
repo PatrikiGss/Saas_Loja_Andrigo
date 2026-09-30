@@ -72,7 +72,10 @@ describe('FormularioDeProduto', () => {
 
   it('agrupa os subtipos pela categoria no seletor', () => {
     const tela = montar()
-    const opcoes = tela.get('select').findAll('option').map((o) => o.text())
+    const opcoes = tela
+      .get('select')
+      .findAll('option')
+      .map((o) => o.text())
 
     expect(opcoes).toEqual(['Escolha', 'Pod descartável — Box', 'Essência — Nic salt'])
   })

@@ -8,13 +8,8 @@
 import { objetoCom } from '@/services/conferencia'
 import { comoCredenciaisRecusadas } from '@/services/erros'
 import { http } from '@/services/http'
-import type {
-  Acesso,
-  Credenciais,
-  CredenciaisDoLink,
-  DadosDeCadastro,
-  Perfil,
-} from '../types'
+import type { Esquema } from '@/types/api'
+import type { Acesso, Credenciais, CredenciaisDoLink, DadosDeCadastro, Perfil } from '../types'
 
 /**
  * Rotas em que um 401 é resposta legítima, e não sessão vencida.
@@ -64,7 +59,11 @@ export async function ativarConta(credenciais: CredenciaisDoLink): Promise<void>
 
 /** `POST /api/auth/senha/recuperar/` — responde igual exista ou não a conta. */
 export async function pedirRecuperacao(email: string): Promise<void> {
-  await http.post('/auth/senha/recuperar/', { email }, SEM_RENOVACAO)
+  await http.post(
+    '/auth/senha/recuperar/',
+    { email } satisfies Esquema<'RecuperarSenhaRequest'>,
+    SEM_RENOVACAO,
+  )
 }
 
 /** `POST /api/auth/senha/redefinir/` — nova senha a partir do link. */
@@ -72,7 +71,11 @@ export async function redefinirSenha(
   credenciais: CredenciaisDoLink,
   nova_senha: string,
 ): Promise<void> {
-  await http.post('/auth/senha/redefinir/', { ...credenciais, nova_senha }, SEM_RENOVACAO)
+  await http.post(
+    '/auth/senha/redefinir/',
+    { ...credenciais, nova_senha } satisfies Esquema<'RedefinirSenhaRequest'>,
+    SEM_RENOVACAO,
+  )
 }
 
 /**
@@ -82,7 +85,10 @@ export async function redefinirSenha(
  * chamar isto perde a sessão de propósito e precisa entrar de novo.
  */
 export async function alterarSenha(senha_atual: string, nova_senha: string): Promise<void> {
-  await http.post('/auth/senha/', { senha_atual, nova_senha })
+  await http.post('/auth/senha/', {
+    senha_atual,
+    nova_senha,
+  } satisfies Esquema<'AlterarSenhaRequest'>)
 }
 
 /** `GET /api/perfil/` — conta autenticada. É onde o nível de acesso aparece. */

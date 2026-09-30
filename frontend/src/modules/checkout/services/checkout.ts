@@ -9,6 +9,7 @@
 import { listaDe, objetoCom } from '@/services/conferencia'
 import { http } from '@/services/http'
 import { CAMPOS_DO_PEDIDO, type Pedido, type ServicoFrete } from '@/modules/pedidos/types'
+import type { Esquema } from '@/types/api'
 import type { OpcaoFrete } from '../types'
 
 /**
@@ -18,7 +19,9 @@ import type { OpcaoFrete } from '../types'
  * `{endereco: 'Não há entrega para esse estado.'}`.
  */
 export async function cotarFrete(endereco: number): Promise<OpcaoFrete[]> {
-  const { data } = await http.post<OpcaoFrete[]>('/frete/cotacao/', { endereco })
+  const { data } = await http.post<OpcaoFrete[]>('/frete/cotacao/', {
+    endereco,
+  } satisfies Esquema<'CotacaoFreteRequest'>)
   // `servico` é o que vai no fechamento; `preco` e `prazo_em_dias` são o que
   // a pessoa lê para escolher.
   return listaDe<OpcaoFrete>(data, ['servico', 'nome', 'preco', 'prazo_em_dias'])
@@ -31,6 +34,9 @@ export async function cotarFrete(endereco: number): Promise<OpcaoFrete[]> {
  * no servidor, então quem chamar isto precisa recarregar o carrinho local.
  */
 export async function fecharPedido(endereco: number, servico: ServicoFrete): Promise<Pedido> {
-  const { data } = await http.post<Pedido>('/checkout/', { endereco, servico })
+  const { data } = await http.post<Pedido>('/checkout/', {
+    endereco,
+    servico,
+  } satisfies Esquema<'CheckoutRequest'>)
   return objetoCom<Pedido>(data, CAMPOS_DO_PEDIDO)
 }

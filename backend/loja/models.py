@@ -1,4 +1,5 @@
 """Modelagem do catálogo de produtos da loja."""
+
 from __future__ import annotations
 
 import uuid

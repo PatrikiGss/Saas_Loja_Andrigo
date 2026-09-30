@@ -1,4 +1,5 @@
 """Rotas de conta, perfil e administração de usuários."""
+
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 

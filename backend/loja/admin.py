@@ -1,4 +1,5 @@
 """Administração do catálogo."""
+
 from __future__ import annotations
 
 from django.contrib import admin
@@ -31,10 +32,13 @@ class ProdutoAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {'fields': ('sku', 'nome', 'marca', 'descricao')}),
         ('Classificação', {'fields': ('subtipo',)}),
-        ('Especificações', {
-            'fields': ('puffs', 'volume_ml', 'nicotina_mg_ml'),
-            'description': 'Preencha apenas o que a categoria do subtipo exige.',
-        }),
+        (
+            'Especificações',
+            {
+                'fields': ('puffs', 'volume_ml', 'nicotina_mg_ml'),
+                'description': 'Preencha apenas o que a categoria do subtipo exige.',
+            },
+        ),
         ('Comercial', {'fields': ('preco', 'ativo', 'estoque')}),
         ('Controle', {'fields': ('id', 'criado_em', 'atualizado_em'), 'classes': ('collapse',)}),
     )

@@ -1,4 +1,5 @@
 """Testes de pedido, checkout, estoque, frete, CEP e e-mail."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -102,7 +103,9 @@ class BasePedidoTests(APITestCase):
         carrinho.adicionar(self.outro_produto, 1)
         return carrinho
 
-    def fechar(self, servico: str = ServicoFrete.ECONOMICO, endereco: Endereco | None = None, **extras):
+    def fechar(
+        self, servico: str = ServicoFrete.ECONOMICO, endereco: Endereco | None = None, **extras
+    ):
         dados = {'endereco': (endereco or self.endereco).pk, 'servico': servico}
         dados.update(extras)
         return self.client.post(reverse('checkout'), dados, format='json')
@@ -233,7 +236,9 @@ class CheckoutTests(BasePedidoTests):
     def test_falha_no_meio_da_transacao_nao_deixa_rastro(self) -> None:
         carrinho = self.encher_carrinho()
 
-        with patch('pedidos.models.ItemPedido.objects.bulk_create', side_effect=RuntimeError('falhou')):
+        with patch(
+            'pedidos.models.ItemPedido.objects.bulk_create', side_effect=RuntimeError('falhou')
+        ):
             with self.assertRaises(RuntimeError):
                 Pedido.objects.fechar_carrinho(
                     usuario=self.usuario, endereco=self.endereco, servico=ServicoFrete.ECONOMICO
@@ -265,7 +270,9 @@ class CheckoutTests(BasePedidoTests):
         self.encher_carrinho()
 
         resposta = self.client.post(
-            reverse('checkout'), {'endereco': 999999, 'servico': ServicoFrete.ECONOMICO}, format='json'
+            reverse('checkout'),
+            {'endereco': 999999, 'servico': ServicoFrete.ECONOMICO},
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
@@ -302,6 +309,7 @@ class SegurancaCheckoutTests(BasePedidoTests):
             pago_em='2026-01-01T00:00:00Z',
         )
 
+        self.assertEqual(resposta.status_code, status.HTTP_201_CREATED)
         pedido = Pedido.objects.get()
         self.assertEqual(pedido.status, StatusPedido.AGUARDANDO_PAGAMENTO)
         self.assertEqual(pedido.status_pagamento, StatusPagamento.PENDENTE)
@@ -407,7 +415,12 @@ class PedidoModeloTests(BasePedidoTests):
 
     def test_pedido_entregue_nao_muda_mais(self) -> None:
         pedido = self.criar_pedido()
-        for destino in (StatusPedido.PAGO, StatusPedido.EM_PREPARACAO, StatusPedido.ENVIADO, StatusPedido.ENTREGUE):
+        for destino in (
+            StatusPedido.PAGO,
+            StatusPedido.EM_PREPARACAO,
+            StatusPedido.ENVIADO,
+            StatusPedido.ENTREGUE,
+        ):
             pedido.alterar_status(destino)
 
         with self.assertRaises(ValidationError):
@@ -535,7 +548,9 @@ class PedidoApiTests(BasePedidoTests):
         autenticar(self.client, criar_usuario('admin@example.com', is_staff=True))
 
         resposta = self.client.post(
-            reverse('pedido-status', args=[self.pedido.numero]), {'status': 'entregue-ontem'}, format='json'
+            reverse('pedido-status', args=[self.pedido.numero]),
+            {'status': 'entregue-ontem'},
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)

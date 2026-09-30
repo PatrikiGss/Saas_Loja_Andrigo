@@ -22,11 +22,17 @@ import { buscarPedido } from '../services/pedidos'
 
 const rota = useRoute()
 
-const { dados: pedido, carregando, erro, executar } = useRequisicao(() =>
-  buscarPedido(String(rota.params.numero)),
-)
+const {
+  dados: pedido,
+  carregando,
+  erro,
+  executar,
+} = useRequisicao(() => buscarPedido(String(rota.params.numero)))
 
-watch(() => rota.params.numero, () => void executar())
+watch(
+  () => rota.params.numero,
+  () => void executar(),
+)
 </script>
 
 <template>
@@ -42,9 +48,7 @@ watch(() => rota.params.numero, () => void executar())
       <RouterLink to="/pedidos" class="cabecalho__voltar">Meus pedidos</RouterLink>
       <h1 class="cabecalho__numero numerico">{{ pedido.numero }}</h1>
       <p class="cabecalho__data">Feito em {{ dataHora(pedido.criado_em) }}</p>
-      <p v-if="pedido.pago_em" class="cabecalho__data">
-        Pago em {{ dataHora(pedido.pago_em) }}
-      </p>
+      <p v-if="pedido.pago_em" class="cabecalho__data">Pago em {{ dataHora(pedido.pago_em) }}</p>
     </header>
 
     <div class="colunas">

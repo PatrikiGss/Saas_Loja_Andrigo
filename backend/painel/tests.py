@@ -1,4 +1,5 @@
 """Testes de conta, autenticação, perfil e autorização."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -115,6 +116,21 @@ class CadastroTests(BasePainelTests):
         conta = Usuario.objects.get(username='novo@example.com')
         self.assertNotIn(conta.password, str(resposta.data))
 
+    def test_resposta_traz_exatamente_o_minimo(self) -> None:
+        resposta = self.client.post(self.url, self.payload(), format='json')
+
+        conta = Usuario.objects.get(username='novo@example.com')
+        self.assertEqual(
+            resposta.data,
+            {
+                'id': conta.pk,
+                'email': 'novo@example.com',
+                'nome': 'Ana',
+                'nivel': Nivel.USUARIO,
+                'ativo': False,
+            },
+        )
+
     def test_senha_e_guardada_com_hash(self) -> None:
         self.client.post(self.url, self.payload(), format='json')
 
@@ -155,7 +171,9 @@ class CadastroTests(BasePainelTests):
 
     def test_senha_parecida_com_o_email_e_recusada(self) -> None:
         resposta = self.client.post(
-            self.url, self.payload(email='ana.souza@example.com', password='ana.souza'), format='json'
+            self.url,
+            self.payload(email='ana.souza@example.com', password='ana.souza'),
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
@@ -463,7 +481,9 @@ class PerfilTests(BasePainelTests):
 
     def test_usuario_edita_nome_e_telefone(self) -> None:
         resposta = self.client.patch(
-            self.url, {'nome': 'Ana', 'sobrenome': 'Souza', 'telefone': '11 98888-7777'}, format='json'
+            self.url,
+            {'nome': 'Ana', 'sobrenome': 'Souza', 'telefone': '11 98888-7777'},
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_200_OK)
@@ -475,8 +495,14 @@ class PerfilTests(BasePainelTests):
     def test_put_atualiza_apenas_o_permitido(self) -> None:
         resposta = self.client.put(
             self.url,
-            {'nome': 'Ana', 'sobrenome': 'Souza', 'telefone': '11988887777', 'email': 'outro@example.com',
-             'nivel': Nivel.ADMIN, 'is_staff': True},
+            {
+                'nome': 'Ana',
+                'sobrenome': 'Souza',
+                'telefone': '11988887777',
+                'email': 'outro@example.com',
+                'nivel': Nivel.ADMIN,
+                'is_staff': True,
+            },
             format='json',
         )
 
@@ -520,7 +546,9 @@ class PerfilTests(BasePainelTests):
 
     def test_patch_com_id_de_outra_conta_nao_afeta_ninguem(self) -> None:
         resposta = self.client.patch(
-            self.url, {'id': self.outro.pk, 'usuario': self.outro.pk, 'nome': 'Invasor'}, format='json'
+            self.url,
+            {'id': self.outro.pk, 'usuario': self.outro.pk, 'nome': 'Invasor'},
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_200_OK)
@@ -622,7 +650,13 @@ class AutorizacaoUsuarioComumTests(BasePainelTests):
     def test_usuario_nao_cadastra_produto(self) -> None:
         resposta = self.client.post(
             reverse('produto-list'),
-            {'sku': 'PNL-0002', 'nome': 'Novo', 'marca': 'M', 'preco': '10.00', 'subtipo': self.subtipo.slug},
+            {
+                'sku': 'PNL-0002',
+                'nome': 'Novo',
+                'marca': 'M',
+                'preco': '10.00',
+                'subtipo': self.subtipo.slug,
+            },
             format='json',
         )
 
@@ -743,7 +777,9 @@ class AdministracaoDeContasTests(BasePainelTests):
 
     def test_admin_nao_altera_nivel_de_superusuario(self) -> None:
         resposta = self.client.post(
-            reverse('usuario-nivel', args=[self.superusuario.pk]), {'nivel': Nivel.USUARIO}, format='json'
+            reverse('usuario-nivel', args=[self.superusuario.pk]),
+            {'nivel': Nivel.USUARIO},
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
@@ -759,7 +795,9 @@ class AdministracaoDeContasTests(BasePainelTests):
         self.assertIn('nivel', resposta.data)
 
     def test_nivel_ausente(self) -> None:
-        resposta = self.client.post(reverse('usuario-nivel', args=[self.usuario.pk]), {}, format='json')
+        resposta = self.client.post(
+            reverse('usuario-nivel', args=[self.usuario.pk]), {}, format='json'
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -890,7 +928,9 @@ class EnderecoTests(BasePainelTests):
         self.assertFalse(Endereco.objects.filter(pk=endereco.pk).exists())
 
     def test_cep_invalido(self) -> None:
-        resposta = self.client.post(reverse('endereco-list'), self.payload(cep='01001-000'), format='json')
+        resposta = self.client.post(
+            reverse('endereco-list'), self.payload(cep='01001-000'), format='json'
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('cep', resposta.data)
@@ -964,14 +1004,18 @@ class AlterarSenhaTests(BasePainelTests):
         self.assertTrue(self.usuario.check_password(self.NOVA_SENHA))
 
     def test_login_passa_a_usar_a_nova_senha(self) -> None:
-        self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
+        self.client.post(
+            self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
 
         anonimo = APIClient()
         antiga = anonimo.post(
             reverse('login'), {'email': self.usuario.email, 'password': SENHA}, format='json'
         )
         nova = anonimo.post(
-            reverse('login'), {'email': self.usuario.email, 'password': self.NOVA_SENHA}, format='json'
+            reverse('login'),
+            {'email': self.usuario.email, 'password': self.NOVA_SENHA},
+            format='json',
         )
 
         self.assertEqual(antiga.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -998,7 +1042,9 @@ class AlterarSenhaTests(BasePainelTests):
     def test_troca_derruba_os_refresh_antigos(self) -> None:
         refresh = str(RefreshToken.for_user(self.usuario))
 
-        self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
+        self.client.post(
+            self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
 
         outro_navegador = APIClient()
         por_o_refresh_no_cookie(outro_navegador, refresh)
@@ -1008,7 +1054,9 @@ class AlterarSenhaTests(BasePainelTests):
     def test_troca_derruba_o_access_token_atual(self) -> None:
         # O token carrega a marca da senha, então trocar a senha o invalida
         # na hora, sem esperar os 15 minutos de validade.
-        self.client.post(self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json')
+        self.client.post(
+            self.url, {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA}, format='json'
+        )
 
         resposta = self.client.get(reverse('perfil'))
 
@@ -1017,7 +1065,12 @@ class AlterarSenhaTests(BasePainelTests):
     def test_nao_mexe_na_senha_de_outra_conta(self) -> None:
         self.client.post(
             self.url,
-            {'senha_atual': SENHA, 'nova_senha': self.NOVA_SENHA, 'usuario': self.outro.pk, 'id': self.outro.pk},
+            {
+                'senha_atual': SENHA,
+                'nova_senha': self.NOVA_SENHA,
+                'usuario': self.outro.pk,
+                'id': self.outro.pk,
+            },
             format='json',
         )
 
@@ -1064,7 +1117,9 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
         existente = self.client.post(self.url_pedido, {'email': self.usuario.email}, format='json')
         EmailPendente.objects.all().delete()
 
-        inexistente = self.client.post(self.url_pedido, {'email': 'ninguem@example.com'}, format='json')
+        inexistente = self.client.post(
+            self.url_pedido, {'email': 'ninguem@example.com'}, format='json'
+        )
 
         self.assertEqual(inexistente.status_code, existente.status_code)
         self.assertEqual(inexistente.data, existente.data)
@@ -1086,7 +1141,9 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
 
     def test_redefinicao_valida(self) -> None:
         resposta = self.client.post(
-            self.url_redefinicao, {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}, format='json'
+            self.url_redefinicao,
+            {**self.credenciais(), 'nova_senha': self.NOVA_SENHA},
+            format='json',
         )
 
         self.assertEqual(resposta.status_code, status.HTTP_204_NO_CONTENT)
@@ -1149,7 +1206,9 @@ class RecuperacaoDeSenhaTests(BasePainelTests):
         refresh = str(RefreshToken.for_user(self.usuario))
 
         self.client.post(
-            self.url_redefinicao, {**self.credenciais(), 'nova_senha': self.NOVA_SENHA}, format='json'
+            self.url_redefinicao,
+            {**self.credenciais(), 'nova_senha': self.NOVA_SENHA},
+            format='json',
         )
 
         por_o_refresh_no_cookie(self.client, refresh)
@@ -1409,7 +1468,9 @@ class IntegracaoComLojaTests(BasePainelTests):
 
     def test_conta_promovida_passa_a_gerenciar_o_catalogo(self) -> None:
         autenticar(self.client, self.usuario)
-        negado = self.client.post(reverse('produto-list'), self.payload_produto('INT-0010'), format='json')
+        negado = self.client.post(
+            reverse('produto-list'), self.payload_produto('INT-0010'), format='json'
+        )
         self.assertEqual(negado.status_code, status.HTTP_403_FORBIDDEN)
 
         promocao = self.cliente_admin.post(
@@ -1418,7 +1479,9 @@ class IntegracaoComLojaTests(BasePainelTests):
         self.assertEqual(promocao.status_code, status.HTTP_200_OK)
 
         # Mesmo token de antes: o privilégio vem do banco, não do token.
-        criado = self.client.post(reverse('produto-list'), self.payload_produto('INT-0010'), format='json')
+        criado = self.client.post(
+            reverse('produto-list'), self.payload_produto('INT-0010'), format='json'
+        )
 
         self.assertEqual(criado.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Produto.objects.filter(sku='INT-0010').exists())
@@ -1429,7 +1492,8 @@ class IntegracaoComLojaTests(BasePainelTests):
         autenticar(self.client, gestor)
         url_estoque = reverse('produto-estoque', args=[produto.id])
         self.assertEqual(
-            self.client.post(url_estoque, {'delta': 2}, format='json').status_code, status.HTTP_200_OK
+            self.client.post(url_estoque, {'delta': 2}, format='json').status_code,
+            status.HTTP_200_OK,
         )
 
         self.cliente_admin.post(
@@ -1458,7 +1522,9 @@ class IntegracaoComLojaTests(BasePainelTests):
             reverse('usuario-detail', args=[gestor.pk]), {'ativo': False}, format='json'
         )
 
-        resposta = self.client.post(reverse('produto-list'), self.payload_produto('INT-0011'), format='json')
+        resposta = self.client.post(
+            reverse('produto-list'), self.payload_produto('INT-0011'), format='json'
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(Produto.objects.filter(sku='INT-0011').exists())

@@ -1,4 +1,5 @@
 """Rotas de checkout, pedidos, frete e CEP."""
+
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 

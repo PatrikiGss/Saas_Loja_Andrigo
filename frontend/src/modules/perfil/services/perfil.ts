@@ -8,13 +8,14 @@
  */
 import { http } from '@/services/http'
 import type { Perfil } from '@/modules/auth/types'
+import type { Esquema } from '@/types/api'
 
-/** Campos que o cliente pode mudar no próprio perfil. */
-export interface DadosDoPerfil {
-  nome: string
-  sobrenome: string
-  telefone: string
-}
+/**
+ * Campos que o cliente pode mudar no próprio perfil — todos, já que o
+ * formulário manda o perfil inteiro. Campo gravável novo no backend aparece
+ * aqui como obrigatório, e o formulário deixa de compilar até tratá-lo.
+ */
+export type DadosDoPerfil = Required<Esquema<'PatchedPerfilRequest'>>
 
 /** `GET /api/perfil/`. */
 export async function buscarPerfil(): Promise<Perfil> {

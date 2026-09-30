@@ -11,6 +11,7 @@ carrinho ou pedido, só as de autenticação, que são as únicas que precisam d
 Fica em módulo próprio pelo mesmo motivo que frete e CEP ficam: trocar a forma
 de transportar o token é reescrever este arquivo, sem tocar em view.
 """
+
 from __future__ import annotations
 
 from django.conf import settings

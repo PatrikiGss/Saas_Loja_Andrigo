@@ -62,13 +62,15 @@ function abrir(alvo: Endereco | 'novo'): void {
   emEdicao.value = alvo
 }
 
-const { enviando: removendo, erro: erroAoRemover, submeter: confirmarRemocao } = useFormulario(
-  async () => {
-    await removerEndereco((paraRemover.value as Endereco).id)
-    paraRemover.value = null
-    await executar()
-  },
-)
+const {
+  enviando: removendo,
+  erro: erroAoRemover,
+  submeter: confirmarRemocao,
+} = useFormulario(async () => {
+  await removerEndereco((paraRemover.value as Endereco).id)
+  paraRemover.value = null
+  await executar()
+})
 
 const editando = computed(() =>
   emEdicao.value === 'novo' || emEdicao.value === null ? null : emEdicao.value,
@@ -121,12 +123,7 @@ function linha(endereco: Endereco): string {
       </EstadoVazio>
 
       <template v-else>
-        <MensagemDeErro
-          v-if="erroAoRemover"
-          :erro="erroAoRemover"
-          sem-repetir
-          class="recusa"
-        />
+        <MensagemDeErro v-if="erroAoRemover" :erro="erroAoRemover" sem-repetir class="recusa" />
 
         <ul class="lista">
           <li v-for="endereco in enderecos ?? []" :key="endereco.id" class="cartao">

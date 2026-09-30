@@ -76,10 +76,7 @@ function quantidade(itens: { quantidade: number }[]): number {
   <template v-else>
     <ul class="lista">
       <li v-for="pedido in pedidos" :key="pedido.numero" class="linha">
-        <RouterLink
-          class="linha__link"
-          :to="{ name: 'pedido', params: { numero: pedido.numero } }"
-        >
+        <RouterLink class="linha__link" :to="{ name: 'pedido', params: { numero: pedido.numero } }">
           <span class="linha__numero numerico">{{ pedido.numero }}</span>
           <span class="linha__data">{{ dataHora(pedido.criado_em) }}</span>
         </RouterLink>

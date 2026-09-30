@@ -9,14 +9,12 @@ https://docs.djangoproject.com/en/6.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
-import os
-import sys
+
 from datetime import timedelta
 from pathlib import Path
 
+from decouple import Csv, config
 from django.utils.csp import CSP
-
-from decouple import config,Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,9 +24,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config ('SECRET_KEY')
+SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config ('DEBUG',cast=bool)
+DEBUG = config('DEBUG', cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
@@ -44,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
     'corsheaders',
     'axes',
     'loja',
@@ -83,6 +82,34 @@ REST_FRAMEWORK = {
     # Limite do cadastro e do login contra força bruta, das consultas que
     # batem em provedor externo e do fechamento de pedido.
     'DEFAULT_THROTTLE_RATES': {'auth': '10/min', 'consulta': '30/min', 'pedido': '20/min'},
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# Esquema OpenAPI, gerado dos serializers e das views. Ele não é servido por
+# rota: vai para `schema.yml`, versionado, e o frontend gera os tipos dele. O
+# CI recusa o PR em que o arquivo não bate com o código.
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'SaaS Loja',
+    'VERSION': '0.1.0',
+    # Os serializers separam leitura de escrita: sem isto, campo `read_only`
+    # sairia como opcional na resposta, e campo `write_only` apareceria nela.
+    'COMPONENT_SPLIT_REQUEST': True,
+    # O nome do enum vira o nome do tipo no frontend. Sem fixar, ele sai do
+    # nome do campo (`servico` e `servico_frete` virariam dois tipos iguais).
+    'ENUM_NAME_OVERRIDES': {
+        'CategoriaEnum': 'loja.models.Categoria',
+        'NivelEnum': 'painel.models.Nivel',
+        'UFEnum': 'painel.models.UF',
+        'StatusPedidoEnum': 'pedidos.models.StatusPedido',
+        'StatusPagamentoEnum': 'pedidos.models.StatusPagamento',
+        'ServicoFreteEnum': 'pedidos.frete.ServicoFrete',
+    },
+    # O primeiro é o padrão do drf-spectacular, que monta os enums; trocar a
+    # lista sem ele os perderia.
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'configs.esquema.respostas_completas',
+    ],
 }
 
 SIMPLE_JWT = {
@@ -315,7 +342,9 @@ STATIC_URL = 'static/'
 # Em desenvolvimento o e-mail sai no console e nada trafega. Em produção,
 # aponte EMAIL_BACKEND para o SMTP e ponha as credenciais no ambiente: senha
 # de SMTP nunca entra neste arquivo.
-EMAIL_BACKEND_PATH = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+EMAIL_BACKEND_PATH = config(
+    'EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend'
+)
 USA_SMTP = EMAIL_BACKEND_PATH.endswith('smtp.EmailBackend')
 
 MAILERS = {
@@ -328,7 +357,9 @@ MAILERS = {
             'password': config('EMAIL_SENHA', default=''),
             'use_tls': config('EMAIL_USA_TLS', default=True, cast=bool),
             'timeout': config('EMAIL_TIMEOUT', default=10, cast=int),
-        } if USA_SMTP else {},
+        }
+        if USA_SMTP
+        else {},
     },
 }
 

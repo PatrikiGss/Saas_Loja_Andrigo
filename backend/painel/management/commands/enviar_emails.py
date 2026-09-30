@@ -3,6 +3,7 @@
 Feito para rodar de minuto em minuto no agendador do servidor. É a peça que
 tira o envio de dentro da requisição.
 """
+
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand

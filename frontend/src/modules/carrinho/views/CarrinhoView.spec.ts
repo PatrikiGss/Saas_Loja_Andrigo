@@ -47,7 +47,10 @@ async function montar() {
 }
 
 async function clicar(tela: Awaited<ReturnType<typeof montar>>['tela'], texto: string) {
-  await tela.findAll('button').find((b) => b.text().includes(texto))!.trigger('click')
+  await tela
+    .findAll('button')
+    .find((b) => b.text().includes(texto))!
+    .trigger('click')
   await flushPromises()
 }
 

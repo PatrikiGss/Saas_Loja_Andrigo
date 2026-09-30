@@ -27,10 +27,7 @@ const { enviando, erro, campos, submeter } = useFormulario(async () => {
 </script>
 
 <template>
-  <PaginaDeAutenticacao
-    v-if="pedido"
-    titulo="Verifique seu e-mail"
-  >
+  <PaginaDeAutenticacao v-if="pedido" titulo="Verifique seu e-mail">
     <AvisoDeSucesso
       titulo="Pedido registrado"
       :descricao="`Se houver uma conta ativa com ${email}, o link de redefinição chega em instantes. O link vale uma vez e expira.`"

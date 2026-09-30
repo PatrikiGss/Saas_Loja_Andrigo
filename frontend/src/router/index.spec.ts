@@ -96,7 +96,9 @@ describe('rotas', () => {
     const carregadores = router
       .getRoutes()
       .map((declarada) => declarada.components?.default)
-      .filter((componente): componente is () => Promise<unknown> => typeof componente === 'function')
+      .filter(
+        (componente): componente is () => Promise<unknown> => typeof componente === 'function',
+      )
 
     expect(carregadores.length).toBeGreaterThan(10)
 

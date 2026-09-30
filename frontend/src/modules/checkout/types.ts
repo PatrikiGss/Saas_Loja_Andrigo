@@ -1,13 +1,8 @@
 /** Formas do fechamento do pedido. */
-import type { ServicoFrete } from '@/modules/pedidos/types'
+import type { Esquema } from '@/types/api'
 
 /** Uma opção de entrega, como `POST /api/frete/cotacao/` devolve. */
-export interface OpcaoFrete {
-  servico: ServicoFrete
-  nome: string
-  preco: string
-  prazo_em_dias: number
-}
+export type OpcaoFrete = Esquema<'OpcaoFrete'>
 
 /** Os passos do fechamento, na ordem em que acontecem. */
 export type Passo = 'endereco' | 'entrega' | 'resumo'

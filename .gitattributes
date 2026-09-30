@@ -1,0 +1,6 @@
+# Todo arquivo de texto entra e sai do Git com LF, inclusive no Windows.
+#
+# Sem isto quem decide é o `core.autocrlf` de cada máquina: parte dos arquivos
+# ficava com CRLF e parte com LF na mesma cópia, e o Prettier e o ruff
+# acusariam diferença onde só o fim de linha mudou.
+* text=auto eol=lf

@@ -27,12 +27,17 @@ function montar(props: Record<string, unknown> = {}) {
 }
 
 async function clicar(tela: ReturnType<typeof montar>, texto: string) {
-  await tela.findAll('button').find((b) => b.text().includes(texto))!.trigger('click')
+  await tela
+    .findAll('button')
+    .find((b) => b.text().includes(texto))!
+    .trigger('click')
   await flushPromises()
 }
 
 beforeEach(() => {
-  vi.mocked(servico.criarEndereco).mockReset().mockResolvedValue({ ...CASA, id: 2 })
+  vi.mocked(servico.criarEndereco)
+    .mockReset()
+    .mockResolvedValue({ ...CASA, id: 2 })
   vi.mocked(servico.consultarCep).mockReset()
 })
 

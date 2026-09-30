@@ -18,9 +18,7 @@ defineProps<{ itens: ItemPedido[] }>()
         <span class="item__nome">
           <span class="numerico">{{ item.quantidade }}</span> × {{ item.nome }}
         </span>
-        <span class="item__unitario numerico">
-          {{ moeda(item.preco_unitario) }} cada
-        </span>
+        <span class="item__unitario numerico">{{ moeda(item.preco_unitario) }} cada</span>
       </span>
       <span class="item__valor numerico">{{ moeda(item.subtotal) }}</span>
     </li>

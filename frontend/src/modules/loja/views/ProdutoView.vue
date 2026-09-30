@@ -22,9 +22,12 @@ import { buscarProduto, listarSubtipos } from '../services/catalogo'
 
 const rota = useRoute()
 
-const { dados: produto, carregando, erro, executar } = useRequisicao(() =>
-  buscarProduto(String(rota.params.id)),
-)
+const {
+  dados: produto,
+  carregando,
+  erro,
+  executar,
+} = useRequisicao(() => buscarProduto(String(rota.params.id)))
 
 // Os subtipos trazem o nome legível da categoria; sem eles restaria o slug,
 // que é identificador e não texto de interface.
@@ -40,7 +43,10 @@ const nomeDoSubtipo = computed(
   () => subtipos.dados.value?.find((item) => item.slug === produto.value?.subtipo)?.nome,
 )
 
-watch(() => rota.params.id, () => void executar())
+watch(
+  () => rota.params.id,
+  () => void executar(),
+)
 </script>
 
 <template>
@@ -63,11 +69,7 @@ watch(() => rota.params.id, () => void executar())
 
     <div class="produto__dados">
       <header class="cabecalho">
-        <SeloCategoria
-          v-if="nomeDaCategoria"
-          :slug="produto.categoria"
-          :nome="nomeDaCategoria"
-        />
+        <SeloCategoria v-if="nomeDaCategoria" :slug="produto.categoria" :nome="nomeDaCategoria" />
         <h1 class="produto__nome">{{ produto.nome }}</h1>
         <p class="produto__marca">{{ produto.marca }}</p>
       </header>
@@ -80,7 +82,9 @@ watch(() => rota.params.id, () => void executar())
 
       <AdicionarAoCarrinho :produto="produto" />
 
-      <p class="produto__sku">SKU <span class="numerico">{{ produto.sku }}</span></p>
+      <p class="produto__sku">
+        SKU <span class="numerico">{{ produto.sku }}</span>
+      </p>
     </div>
   </article>
 </template>

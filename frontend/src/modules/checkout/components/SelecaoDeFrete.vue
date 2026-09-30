@@ -38,7 +38,12 @@ function prazo(dias: number): string {
 
     <CarregandoIndicador v-if="carregando" texto="Calculando o frete" />
 
-    <MensagemDeErro v-else-if="erro" :erro="erro" :detalhe="erro.campos.endereco" @repetir="emit('repetir')" />
+    <MensagemDeErro
+      v-else-if="erro"
+      :erro="erro"
+      :detalhe="erro.campos.endereco"
+      @repetir="emit('repetir')"
+    />
 
     <div v-else class="lista">
       <label

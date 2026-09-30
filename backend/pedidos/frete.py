@@ -5,6 +5,7 @@ própria por região. O resto do sistema só conhece `cotar` e `cotar_servico`:
 trocar por uma API de transportadora é reescrever este arquivo, sem tocar em
 view, serializer ou model.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,14 +33,33 @@ class OpcaoFrete:
 
 
 REGIAO_POR_UF = {
-    'AC': 'norte', 'AM': 'norte', 'AP': 'norte', 'PA': 'norte', 'RO': 'norte',
-    'RR': 'norte', 'TO': 'norte',
-    'AL': 'nordeste', 'BA': 'nordeste', 'CE': 'nordeste', 'MA': 'nordeste',
-    'PB': 'nordeste', 'PE': 'nordeste', 'PI': 'nordeste', 'RN': 'nordeste',
+    'AC': 'norte',
+    'AM': 'norte',
+    'AP': 'norte',
+    'PA': 'norte',
+    'RO': 'norte',
+    'RR': 'norte',
+    'TO': 'norte',
+    'AL': 'nordeste',
+    'BA': 'nordeste',
+    'CE': 'nordeste',
+    'MA': 'nordeste',
+    'PB': 'nordeste',
+    'PE': 'nordeste',
+    'PI': 'nordeste',
+    'RN': 'nordeste',
     'SE': 'nordeste',
-    'DF': 'centro_oeste', 'GO': 'centro_oeste', 'MS': 'centro_oeste', 'MT': 'centro_oeste',
-    'ES': 'sudeste', 'MG': 'sudeste', 'RJ': 'sudeste', 'SP': 'sudeste',
-    'PR': 'sul', 'RS': 'sul', 'SC': 'sul',
+    'DF': 'centro_oeste',
+    'GO': 'centro_oeste',
+    'MS': 'centro_oeste',
+    'MT': 'centro_oeste',
+    'ES': 'sudeste',
+    'MG': 'sudeste',
+    'RJ': 'sudeste',
+    'SP': 'sudeste',
+    'PR': 'sul',
+    'RS': 'sul',
+    'SC': 'sul',
 }
 
 #: região -> (preço base, prazo base em dias) do serviço econômico.

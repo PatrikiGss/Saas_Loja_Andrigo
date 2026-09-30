@@ -67,12 +67,14 @@ beforeAll(() => {
 })
 
 beforeEach(() => {
-  vi.mocked(servico.listarProdutos).mockReset().mockResolvedValue({
-    count: 2,
-    next: null,
-    previous: null,
-    results: [produto('a', 'Pod de menta', 0), produto('b', 'Pod de uva', 40)],
-  })
+  vi.mocked(servico.listarProdutos)
+    .mockReset()
+    .mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [produto('a', 'Pod de menta', 0), produto('b', 'Pod de uva', 40)],
+    })
   vi.mocked(servico.ajustarEstoque).mockReset().mockResolvedValue(5)
   vi.mocked(servico.removerProduto).mockReset().mockResolvedValue()
 })
@@ -121,7 +123,10 @@ describe('ProdutosView', () => {
 
   it('exclui ao confirmar e recarrega a lista', async () => {
     const tela = await montar()
-    await tela.findAll('button').find((b) => b.text().includes('Excluir'))!.trigger('click')
+    await tela
+      .findAll('button')
+      .find((b) => b.text().includes('Excluir'))!
+      .trigger('click')
 
     const confirmar = tela
       .get('dialog')
@@ -149,7 +154,10 @@ describe('ProdutosView', () => {
     )
 
     const tela = await montar()
-    await tela.findAll('button').find((b) => b.text().includes('Excluir'))!.trigger('click')
+    await tela
+      .findAll('button')
+      .find((b) => b.text().includes('Excluir'))!
+      .trigger('click')
     await tela
       .get('dialog')
       .findAll('button')

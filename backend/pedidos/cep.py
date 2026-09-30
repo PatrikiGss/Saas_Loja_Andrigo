@@ -4,6 +4,7 @@ O provedor fica isolado aqui: quem chama recebe um `EnderecoConsultado` ou uma
 das duas exceções deste módulo, e nunca vê status HTTP, corpo ou nome do
 provedor. Trocar de provedor é reescrever `consultar`.
 """
+
 from __future__ import annotations
 
 import json

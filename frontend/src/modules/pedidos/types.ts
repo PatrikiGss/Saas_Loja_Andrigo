@@ -1,55 +1,21 @@
-/** Formas que a app `pedidos` devolve. Nada aqui é gravável pela API. */
+/** Formas que a app `pedidos` devolve, geradas do esquema. */
+import type { Esquema } from '@/types/api'
 
-/** `StatusPedido.choices`. Quem move o pedido no fluxo é o backend. */
-export type StatusPedido =
-  | 'aguardando_pagamento'
-  | 'pago'
-  | 'em_preparacao'
-  | 'enviado'
-  | 'entregue'
-  | 'cancelado'
+/** Quem move o pedido no fluxo é o backend. */
+export type StatusPedido = Esquema<'StatusPedidoEnum'>
 
-/** `StatusPagamento.choices`. */
-export type StatusPagamento = 'pendente' | 'pago' | 'estornado'
+export type StatusPagamento = Esquema<'StatusPagamentoEnum'>
 
-/** `ServicoFrete.choices`. */
-export type ServicoFrete = 'economico' | 'expresso'
+export type ServicoFrete = Esquema<'ServicoFreteEnum'>
 
 /** Linha da compra, com nome e preço congelados no fechamento. */
-export interface ItemPedido {
-  sku: string
-  nome: string
-  preco_unitario: string
-  quantidade: number
-  subtotal: string
-}
+export type ItemPedido = Esquema<'ItemPedido'>
 
 /** Cópia do endereço como ele estava no dia da compra. */
-export interface EnderecoDeEntrega {
-  cep: string
-  logradouro: string
-  numero: string
-  complemento: string
-  bairro: string
-  cidade: string
-  uf: string
-}
+export type EnderecoDeEntrega = Esquema<'EnderecoDeEntrega'>
 
-/** Resposta de `POST /api/checkout/` e de `/api/pedidos/`. */
-export interface Pedido {
-  numero: string
-  status: StatusPedido
-  status_pagamento: StatusPagamento
-  itens: ItemPedido[]
-  entrega: EnderecoDeEntrega
-  servico_frete: ServicoFrete
-  prazo_frete_em_dias: number
-  subtotal: string
-  frete: string
-  total: string
-  criado_em: string
-  pago_em: string | null
-}
+/** Resposta de `POST /api/checkout/` e de `/api/pedidos/`. Nada é gravável. */
+export type Pedido = Esquema<'Pedido'>
 
 /**
  * Mínimo de que as telas de pedido dependem.
@@ -71,10 +37,14 @@ export const CAMPOS_DO_PEDIDO = [
 /**
  * Texto de cada valor que o backend devolve como identificador.
  *
- * São espelhos dos `TextChoices` do Django. O `.label` deles não vem na API —
- * o serializer manda só o valor — e a interface não pode mostrar
- * `em_preparacao` para ninguém. Se um status novo aparecer no backend, a
- * função `textoDoStatus` devolve o identificador em vez de quebrar a tela.
+ * O esquema traz os valores dos `TextChoices`, mas não o `.label` — o
+ * serializer manda só o valor —, e a interface não pode mostrar
+ * `em_preparacao` para ninguém. Os textos ficam aqui, mas as chaves vêm do
+ * esquema: um status novo no backend quebra a compilação até ganhar texto.
+ *
+ * O `?? status` das funções abaixo continua valendo para outro caso: o
+ * backend publicado antes deste frontend. Aí a tela mostra o identificador em
+ * vez de quebrar.
  */
 export const TEXTO_DO_STATUS: Record<StatusPedido, string> = {
   aguardando_pagamento: 'Aguardando pagamento',

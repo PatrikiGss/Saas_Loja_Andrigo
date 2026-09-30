@@ -35,12 +35,7 @@ const podeRepetir = () => !props.semRepetir && props.erro.vaiAdiantarTentarDeNov
 <template>
   <div class="erro" role="alert">
     <p class="erro__mensagem">{{ detalhe ?? erro.message }}</p>
-    <BotaoBase
-      v-if="podeRepetir()"
-      variante="secundario"
-      :carregando="repetindo"
-      @click="repetir"
-    >
+    <BotaoBase v-if="podeRepetir()" variante="secundario" :carregando="repetindo" @click="repetir">
       Tentar de novo
     </BotaoBase>
   </div>

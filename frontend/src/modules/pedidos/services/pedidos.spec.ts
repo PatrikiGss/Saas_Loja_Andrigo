@@ -22,7 +22,7 @@ const PEDIDO = {
 
 beforeEach(() => {
   get.mockReset()
-  get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } } as never)
+  get.mockResolvedValue({ data: { count: 0, next: null, previous: null, results: [] } })
 })
 
 describe('listarPedidos', () => {
@@ -43,7 +43,7 @@ describe('buscarPedido', () => {
   it('usa o número como chave, e não um id', async () => {
     // O `lookup_field` do ViewSet é `numero`; o id do pedido é UUID e não
     // aparece na API.
-    get.mockResolvedValue({ data: PEDIDO } as never)
+    get.mockResolvedValue({ data: PEDIDO })
     await buscarPedido('PED-20260919-4DDA1D')
 
     expect(get).toHaveBeenCalledWith('/pedidos/PED-20260919-4DDA1D/')

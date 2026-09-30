@@ -1,11 +1,30 @@
 """Serializers de pedido, checkout, frete e CEP."""
+
 from __future__ import annotations
 
+from django.db.models import QuerySet
 from rest_framework import serializers
 
 from painel.models import Endereco
 from pedidos.frete import ServicoFrete
 from pedidos.models import EnderecoDeEntrega, ItemPedido, Pedido, StatusPedido
+
+
+class EnderecoDaConta(serializers.PrimaryKeyRelatedField):
+    """Endereço procurado só entre os da conta autenticada.
+
+    O id de outra pessoa simplesmente não é encontrado, e a resposta é a mesma
+    de um id que não existe. A consulta sai na validação, quando a requisição
+    já está em mãos, e não na criação do serializer: é o que deixa o gerador
+    do esquema instanciá-lo sem conta nenhuma.
+    """
+
+    # Só aponta o modelo, que é de onde o gerador do esquema tira o tipo do id.
+    # A consulta de verdade é a de baixo.
+    queryset = Endereco.objects.none()
+
+    def get_queryset(self) -> QuerySet[Endereco]:
+        return Endereco.objects.filter(usuario=self.context['request'].user)
 
 
 class EnderecoDeEntregaSerializer(serializers.ModelSerializer):
@@ -54,38 +73,22 @@ class PedidoSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSerializer(serializers.Serializer):
-    """Entrada do checkout: endereço e serviço de frete, nada além disso.
+    """Entrada do checkout: endereço e serviço de frete, nada além disso."""
 
-    O endereço é procurado entre os da própria conta, então o id de outra
-    pessoa simplesmente não é encontrado.
-    """
-
-    endereco = serializers.PrimaryKeyRelatedField(queryset=Endereco.objects.none())
+    endereco = EnderecoDaConta()
     servico = serializers.ChoiceField(choices=ServicoFrete.choices)
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.fields['endereco'].queryset = Endereco.objects.filter(
-            usuario=self.context['request'].user
-        )
 
 
 class CotacaoFreteSerializer(serializers.Serializer):
     """Entrada da cotação: só o destino."""
 
-    endereco = serializers.PrimaryKeyRelatedField(queryset=Endereco.objects.none())
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.fields['endereco'].queryset = Endereco.objects.filter(
-            usuario=self.context['request'].user
-        )
+    endereco = EnderecoDaConta()
 
 
 class OpcaoFreteSerializer(serializers.Serializer):
     """Saída da cotação, como o frontend recebe."""
 
-    servico = serializers.CharField(read_only=True)
+    servico = serializers.ChoiceField(choices=ServicoFrete.choices, read_only=True)
     nome = serializers.CharField(read_only=True)
     preco = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     prazo_em_dias = serializers.IntegerField(read_only=True)

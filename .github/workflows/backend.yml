@@ -32,11 +32,30 @@ jobs:
       - name: Instalar dependências
         run: pip install -r ../requirements-dev.txt
 
+      # Primeiro porque é o mais rápido e não precisa do Django de pé. O
+      # formato `github` põe o aviso na linha do PR, e não só no log.
+      - name: Lint
+        run: ruff check --output-format=github .
+
+      # `--diff` em vez de `--check`: o log mostra o que mudaria, e não só o
+      # nome do arquivo.
+      - name: Formatação
+        run: ruff format --diff .
+
       - name: Checagem do Django
         run: python manage.py check
 
       - name: Migrations em dia
         run: python manage.py makemigrations --check --dry-run
+
+      # O frontend gera os tipos a partir de schema.yml. Se o arquivo não bate
+      # com o código, a API mudou e ninguém regenerou, e o frontend estaria
+      # compilando contra uma API que não existe mais. `--fail-on-warn` recusa
+      # view que o gerador não consegue descrever sem chutar.
+      - name: Esquema OpenAPI em dia
+        run: |
+          python manage.py spectacular --file schema.yml --validate --fail-on-warn
+          git diff --exit-code schema.yml
 
       - name: Testes
         run: coverage run manage.py test --settings=configs.settings_test

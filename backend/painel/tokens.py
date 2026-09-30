@@ -1,4 +1,5 @@
 """Tokens de link enviados por e-mail."""
+
 from __future__ import annotations
 
 from django.contrib.auth.models import AbstractBaseUser

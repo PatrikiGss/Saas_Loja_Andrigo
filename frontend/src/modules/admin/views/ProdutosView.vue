@@ -44,7 +44,10 @@ const { dados, carregando, erro, respondeu, executar } = useRequisicao(() =>
   listarProdutos({ pagina: pagina.value, busca: String(rota.query.busca ?? '') }),
 )
 
-watch(() => [pagina.value, rota.query.busca], () => void executar())
+watch(
+  () => [pagina.value, rota.query.busca],
+  () => void executar(),
+)
 
 const produtos = computed(() => dados.value?.results ?? [])
 const total = computed(() => dados.value?.count ?? 0)
@@ -119,12 +122,7 @@ function aplicarEstoque(produto: ProdutoGestao, estoque: number): void {
   />
 
   <template v-else>
-    <MensagemDeErro
-      v-if="erroAoRemover"
-      :erro="erroAoRemover"
-      sem-repetir
-      class="recusa"
-    />
+    <MensagemDeErro v-if="erroAoRemover" :erro="erroAoRemover" sem-repetir class="recusa" />
 
     <p class="contagem">
       <span class="numerico">{{ total }}</span>
@@ -185,7 +183,9 @@ function aplicarEstoque(produto: ProdutoGestao, estoque: number): void {
       :total="total"
       :por-pagina="POR_PAGINA"
       :desabilitado="carregando"
-      @ir-para="navegar({ busca: busca || undefined, pagina: $event > 1 ? String($event) : undefined })"
+      @ir-para="
+        navegar({ busca: busca || undefined, pagina: $event > 1 ? String($event) : undefined })
+      "
     />
   </template>
 

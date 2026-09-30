@@ -16,7 +16,7 @@ const props = withDefaults(
     titulo: string
     descricao?: string
     /** O que o botão faz, escrito como a ação: 'Limpar carrinho'. */
-    confirmar: string
+    confirmar?: string
     processando?: boolean
   }>(),
   { confirmar: 'Confirmar' },

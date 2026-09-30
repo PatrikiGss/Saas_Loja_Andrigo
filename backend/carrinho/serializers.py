@@ -1,4 +1,5 @@
 """Serializers do carrinho."""
+
 from __future__ import annotations
 
 import copy

@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
+import { AxiosError, AxiosHeaders } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -106,7 +106,10 @@ describe('InicioView', () => {
     vi.mocked(servico.listarSubtipos).mockRejectedValueOnce(erroDeRede())
     const tela = await montar()
 
-    await tela.findAll('button').find((b) => b.text().includes('Tentar de novo'))!.trigger('click')
+    await tela
+      .findAll('button')
+      .find((b) => b.text().includes('Tentar de novo'))!
+      .trigger('click')
     await flushPromises()
 
     expect(tela.findAll('.familia')).toHaveLength(2)

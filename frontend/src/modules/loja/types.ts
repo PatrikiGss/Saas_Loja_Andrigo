@@ -1,20 +1,11 @@
-/** Formas que a app `loja` do backend devolve. */
+/** Formas que a app `loja` do backend devolve, geradas do esquema. */
+import type { Consulta, Esquema } from '@/types/api'
 
 /** Valores de `Categoria.choices`. O rótulo legível vem da API, não daqui. */
-export type CategoriaSlug =
-  | 'pod_descartavel'
-  | 'pod_recarregavel'
-  | 'vape'
-  | 'essencia'
-  | 'vaporizador_ervas'
+export type CategoriaSlug = Esquema<'CategoriaEnum'>
 
 /** Resposta de `GET /api/subtipos/`. */
-export interface Subtipo {
-  slug: string
-  nome: string
-  categoria: CategoriaSlug
-  categoria_display: string
-}
+export type Subtipo = Esquema<'Subtipo'>
 
 /** Uma categoria montada a partir dos subtipos que a API devolveu. */
 export interface Categoria {
@@ -31,28 +22,15 @@ export interface Categoria {
  * calcular — qualquer conta de dinheiro é do servidor.
  *
  * `em_estoque` é booleano de propósito: a quantidade em estoque não é pública
- * no catálogo, e a API não a expõe aqui.
+ * no catálogo, e a API não a expõe aqui. As especificações vêm nulas nas
+ * categorias em que não se aplicam.
  */
-export interface Produto {
-  id: string
-  sku: string
-  nome: string
-  descricao: string
-  marca: string
-  categoria: CategoriaSlug
-  /** Slug do subtipo. */
-  subtipo: string
-  preco: string
-  em_estoque: boolean
-  /** Especificações. Vêm nulas nas categorias em que não se aplicam. */
-  puffs: number | null
-  volume_ml: string | null
-  nicotina_mg_ml: string | null
-}
+export type Produto = Esquema<'Produto'>
 
-/** Ordenações aceitas: são os `ordering_fields` do `ProdutoViewSet`. */
-export type Ordenacao = 'nome' | '-nome' | 'preco' | '-preco' | '-criado_em'
+/** Ordenações que o `ProdutoViewSet` aceita. */
+export type Ordenacao = NonNullable<Consulta<'/api/produtos/'>['ordering']>
 
+/** As que a vitrine oferece, e com que nome. */
 export const ORDENACOES: ReadonlyArray<{ valor: Ordenacao; texto: string }> = [
   { valor: 'nome', texto: 'Nome (A–Z)' },
   { valor: '-nome', texto: 'Nome (Z–A)' },

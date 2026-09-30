@@ -80,7 +80,10 @@ describe('FormularioDeEndereco', () => {
     const formulario = montar()
 
     await preencher(formulario, 'CEP', '01001000')
-    await formulario.findAll('button').find((b) => b.text().includes('Buscar CEP'))!.trigger('click')
+    await formulario
+      .findAll('button')
+      .find((b) => b.text().includes('Buscar CEP'))!
+      .trigger('click')
     await flushPromises()
 
     expect((formulario.get('select').element as HTMLSelectElement).value).toBe('SP')
@@ -89,11 +92,47 @@ describe('FormularioDeEndereco', () => {
     expect(valorDe(formulario, 'Cidade')).toBe('São Paulo')
   })
 
+  it('mantém a UF escolhida quando o provedor devolve sigla que o backend não aceita', async () => {
+    vi.mocked(servico.consultarCep).mockResolvedValue({
+      cep: '01001000',
+      logradouro: 'Praça da Sé',
+      complemento: '',
+      bairro: 'Sé',
+      cidade: 'São Paulo',
+      uf: 'XX',
+    })
+    const formulario = montar()
+    await formulario.get('select').setValue('RJ')
+
+    await preencher(formulario, 'CEP', '01001000')
+    await formulario
+      .findAll('button')
+      .find((b) => b.text().includes('Buscar CEP'))!
+      .trigger('click')
+    await flushPromises()
+
+    expect((formulario.get('select').element as HTMLSelectElement).value).toBe('RJ')
+    expect(valorDe(formulario, 'Rua')).toBe('Praça da Sé')
+  })
+
+  it('oferece as 27 unidades da federação', () => {
+    const formulario = montar()
+
+    // A primeira opção é o "Escolha", desabilitado.
+    const siglas = formulario.findAll('option').map((opcao) => opcao.attributes('value'))
+    expect(siglas).toHaveLength(28)
+    expect(siglas.slice(1, 3)).toEqual(['AC', 'AL'])
+    expect(siglas.at(-1)).toBe('TO')
+  })
+
   it('recusa buscar CEP incompleto sem gastar a chamada', async () => {
     const formulario = montar()
 
     await preencher(formulario, 'CEP', '0100')
-    await formulario.findAll('button').find((b) => b.text().includes('Buscar CEP'))!.trigger('click')
+    await formulario
+      .findAll('button')
+      .find((b) => b.text().includes('Buscar CEP'))!
+      .trigger('click')
     await flushPromises()
 
     // O endpoint tem limite de 30 por minuto; não vale queimar numa entrada
@@ -116,7 +155,10 @@ describe('FormularioDeEndereco', () => {
     const formulario = montar()
 
     await preencher(formulario, 'CEP', '99999999')
-    await formulario.findAll('button').find((b) => b.text().includes('Buscar CEP'))!.trigger('click')
+    await formulario
+      .findAll('button')
+      .find((b) => b.text().includes('Buscar CEP'))!
+      .trigger('click')
     await flushPromises()
 
     expect(formulario.text()).toContain('CEP não encontrado.')

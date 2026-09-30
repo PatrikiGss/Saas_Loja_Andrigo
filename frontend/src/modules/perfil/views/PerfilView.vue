@@ -36,7 +36,12 @@ watch(perfil, (atual) => {
   }
 })
 
-const { enviando, erro: erroAoSalvar, campos, submeter } = useFormulario(async () => {
+const {
+  enviando,
+  erro: erroAoSalvar,
+  campos,
+  submeter,
+} = useFormulario(async () => {
   const atualizado = await atualizarPerfil(formulario.value)
   perfil.value = atualizado
   // O cabeçalho mostra o nome; sem isto ele seguiria com o valor antigo.
@@ -68,9 +73,7 @@ function salvar(): void {
         <dd>{{ perfil.nivel === 'admin' ? 'Administrador' : 'Cliente' }}</dd>
       </div>
     </dl>
-    <p class="fixos__nota">
-      E-mail e nível de acesso não são editáveis por aqui.
-    </p>
+    <p class="fixos__nota">E-mail e nível de acesso não são editáveis por aqui.</p>
 
     <form class="campos" novalidate @submit.prevent="salvar">
       <CampoTexto

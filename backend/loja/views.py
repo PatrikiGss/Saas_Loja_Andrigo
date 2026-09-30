@@ -1,8 +1,16 @@
 """Endpoints do catálogo."""
+
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db.models import ProtectedError, QuerySet
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    PolymorphicProxySerializer,
+    extend_schema,
+    extend_schema_view,
+    inline_serializer,
+)
 from rest_framework import filters, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, ValidationError
@@ -18,6 +26,12 @@ from loja.serializers import (
 )
 from painel.auditoria import registrar
 from painel.permissions import LeituraPublicaEscritaAdmin, e_admin
+
+#: Por onde o catálogo pode ser ordenado. O filtro e o esquema leem daqui.
+CAMPOS_DE_ORDENACAO = ('nome', 'preco', 'criado_em')
+
+#: O que `?ordering=` aceita: cada campo, crescente ou com `-` na frente.
+ORDENACOES = [f'{sentido}{campo}' for campo in CAMPOS_DE_ORDENACAO for sentido in ('', '-')]
 
 
 class ProdutoEmUso(APIException):
@@ -37,6 +51,37 @@ class SubtipoViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = 'slug'
 
 
+def _produto_conforme_quem_pergunta(many: bool = False) -> PolymorphicProxySerializer:
+    """O que a leitura devolve: `Produto` ao público, `ProdutoGestao` à equipe.
+
+    O esquema é gerado sem conta nenhuma, então sozinho ele só enxergaria o
+    lado público.
+    """
+    return PolymorphicProxySerializer(
+        component_name='ProdutoConformeQuemPergunta',
+        serializers=[ProdutoSerializer, ProdutoGestaoSerializer],
+        resource_type_field_name=None,
+        many=many,
+    )
+
+
+@extend_schema_view(
+    list=extend_schema(
+        parameters=[
+            OpenApiParameter('categoria', str, enum=Categoria.values),
+            OpenApiParameter('subtipo', str, description='Slug do subtipo.'),
+            OpenApiParameter('ordering', str, enum=ORDENACOES),
+        ],
+        responses=_produto_conforme_quem_pergunta(many=True),
+    ),
+    retrieve=extend_schema(responses=_produto_conforme_quem_pergunta()),
+    # Escrever é só da equipe, e a equipe fala pelo serializer de gestão.
+    create=extend_schema(request=ProdutoGestaoSerializer, responses=ProdutoGestaoSerializer),
+    update=extend_schema(request=ProdutoGestaoSerializer, responses=ProdutoGestaoSerializer),
+    partial_update=extend_schema(
+        request=ProdutoGestaoSerializer, responses=ProdutoGestaoSerializer
+    ),
+)
 class ProdutoViewSet(viewsets.ModelViewSet):
     """Catálogo de produtos.
 
@@ -47,7 +92,7 @@ class ProdutoViewSet(viewsets.ModelViewSet):
     permission_classes = (LeituraPublicaEscritaAdmin,)
     filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ('nome', 'marca', 'sku')
-    ordering_fields = ('nome', 'preco', 'criado_em')
+    ordering_fields = CAMPOS_DE_ORDENACAO
     ordering = ('nome',)
 
     def get_queryset(self) -> QuerySet[Produto]:
@@ -88,6 +133,10 @@ class ProdutoViewSet(viewsets.ModelViewSet):
 
         registrar(self.request.user, 'produto_excluido', alvo=f'produto:{instance.sku}')
 
+    @extend_schema(
+        request=AjusteEstoqueSerializer,
+        responses=inline_serializer('EstoqueAjustado', {'estoque': serializers.IntegerField()}),
+    )
     @action(detail=True, methods=('post',), url_path='estoque', url_name='estoque')
     def ajustar_estoque(self, request: Request, pk: str | None = None) -> Response:
         """Repõe ou dá baixa no estoque do produto."""

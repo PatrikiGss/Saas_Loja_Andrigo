@@ -28,6 +28,20 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Formatação
+        run: npm run verificar-formato
+
+      # Os tipos da API são gerados de backend/schema.yml. Se o arquivo gerado
+      # não bate com o esquema, alguém mudou a API e não regenerou, e a
+      # verificação de tipos abaixo estaria conferindo contra a API antiga.
+      - name: Tipos da API em dia
+        run: |
+          npm run gerar-tipos
+          git diff --exit-code src/types/esquema.ts
+
       - name: Tipos
         run: npm run verificar-tipos
 

@@ -1,4 +1,5 @@
 """Fila e envio de e-mail da aplicação."""
+
 from __future__ import annotations
 
 import logging

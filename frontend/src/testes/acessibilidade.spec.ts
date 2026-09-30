@@ -24,6 +24,7 @@ import * as servicoCatalogo from '@/modules/loja/services/catalogo'
 import CatalogoView from '@/modules/loja/views/CatalogoView.vue'
 import ProdutoView from '@/modules/loja/views/ProdutoView.vue'
 import * as servicoEnderecos from '@/modules/enderecos/services/enderecos'
+import type { Endereco } from '@/modules/enderecos/types'
 import EnderecosView from '@/modules/perfil/views/EnderecosView.vue'
 import PerfilView from '@/modules/perfil/views/PerfilView.vue'
 import * as servicoPerfil from '@/modules/perfil/services/perfil'
@@ -106,7 +107,7 @@ const SUBTIPOS = [
   },
 ]
 
-const ENDERECO = {
+const ENDERECO: Endereco = {
   id: 1,
   apelido: 'Casa',
   cep: '01001000',

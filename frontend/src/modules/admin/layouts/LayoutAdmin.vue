@@ -60,9 +60,7 @@ async function sair() {
         <div class="conta">
           <RouterLink class="conta__link" to="/">Ver a loja</RouterLink>
           <span class="conta__nome">{{ sessao.nomeExibido }}</span>
-          <button type="button" class="conta__sair" :disabled="saindo" @click="sair">
-            Sair
-          </button>
+          <button type="button" class="conta__sair" :disabled="saindo" @click="sair">Sair</button>
         </div>
       </div>
     </header>

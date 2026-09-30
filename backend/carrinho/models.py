@@ -1,4 +1,5 @@
 """Carrinho de compras do usuário autenticado."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -15,7 +16,7 @@ QUANTIDADE_MAXIMA = 100
 
 
 class CarrinhoQuerySet(models.QuerySet):
-    def do_usuario(self, usuario) -> 'Carrinho':
+    def do_usuario(self, usuario) -> Carrinho:
         """Devolve o carrinho da conta, criando na primeira vez.
 
         O dono vem sempre da conta autenticada, nunca do payload, e o
@@ -48,7 +49,7 @@ class Carrinho(models.Model):
         """Soma os subtotais dos itens já carregados, sem consulta extra."""
         return sum((item.subtotal for item in self.itens.all()), Decimal('0.00'))
 
-    def adicionar(self, produto: Produto, quantidade: int) -> 'ItemCarrinho':
+    def adicionar(self, produto: Produto, quantidade: int) -> ItemCarrinho:
         """Soma à quantidade do item existente ou cria o item.
 
         A trava é no próprio carrinho: duas requisições da mesma conta entram

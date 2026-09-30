@@ -57,7 +57,10 @@ describe('FiltrosCatalogo', () => {
     expect(montar().findAll('select')).toHaveLength(1)
 
     const comCategoria = montar({ categoria: 'essencia' })
-    const opcoes = comCategoria.findAll('select')[0].findAll('option').map((o) => o.text())
+    const opcoes = comCategoria
+      .findAll('select')[0]
+      .findAll('option')
+      .map((o) => o.text())
 
     expect(comCategoria.findAll('select')).toHaveLength(2)
     expect(opcoes).toEqual(['Todos', 'Nic salt', 'Freebase'])
@@ -112,7 +115,10 @@ describe('FiltrosCatalogo', () => {
     const tela = montar({ categoria: 'essencia', ordem: '-preco' })
     expect(tela.text()).toContain('Limpar filtros')
 
-    await tela.findAll('button').find((b) => b.text().includes('Limpar filtros'))!.trigger('click')
+    await tela
+      .findAll('button')
+      .find((b) => b.text().includes('Limpar filtros'))!
+      .trigger('click')
 
     // Limpar tira os filtros e preserva a ordenação escolhida.
     const depois = ultimaAlteracao(tela)

@@ -25,10 +25,7 @@ const id = computed(() => (rota.params.id ? String(rota.params.id) : null))
 const editando = computed(() => id.value !== null)
 
 const subtipos = useRequisicao(listarSubtipos)
-const produto = useRequisicao(
-  () => buscarProduto(id.value as string),
-  { imediato: editando.value },
-)
+const produto = useRequisicao(() => buscarProduto(id.value as string), { imediato: editando.value })
 
 const pendente = ref<DadosDeProduto | null>(null)
 

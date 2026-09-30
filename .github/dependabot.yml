@@ -41,6 +41,16 @@ updates:
           - 'vue-tsc'
           - 'typescript'
 
+      # O mesmo vale para o ESLint e os plugins dele: um major do ESLint
+      # costuma chegar antes de o plugin do Vue declarar suporte.
+      lint:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@vue/eslint-config-*'
+          - 'prettier'
+          - 'jiti'
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

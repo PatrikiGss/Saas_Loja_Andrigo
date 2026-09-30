@@ -145,8 +145,8 @@ function enviar(): void {
     <fieldset class="especificacoes">
       <legend class="especificacoes__titulo">Especificações</legend>
       <p class="especificacoes__nota">
-        Preencha só as que valem para a categoria do subtipo. O servidor recusa o que não
-        se aplica e cobra o que falta.
+        Preencha só as que valem para a categoria do subtipo. O servidor recusa o que não se aplica
+        e cobra o que falta.
       </p>
 
       <div class="tripla">

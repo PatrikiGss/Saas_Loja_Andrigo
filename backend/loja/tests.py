@@ -1,4 +1,5 @@
 """Testes do catálogo: modelo, serializers, permissões e endpoints."""
+
 from __future__ import annotations
 
 import uuid
@@ -84,7 +85,11 @@ class ProdutoModelTests(BaseCatalogoTests):
 
     def test_especificacoes_da_categoria_sao_obrigatorias(self) -> None:
         produto = Produto(
-            subtipo=self.essencia, sku='ESS-0001', nome='Menta', marca='Marca', preco=Decimal('30.00')
+            subtipo=self.essencia,
+            sku='ESS-0001',
+            nome='Menta',
+            marca='Marca',
+            preco=Decimal('30.00'),
         )
 
         with self.assertRaises(ValidationError) as contexto:
@@ -95,7 +100,12 @@ class ProdutoModelTests(BaseCatalogoTests):
 
     def test_especificacao_de_outra_categoria_e_recusada(self) -> None:
         produto = Produto(
-            subtipo=self.vape, sku='VAP-0001', nome='Kit', marca='Marca', preco=Decimal('300.00'), puffs=5000
+            subtipo=self.vape,
+            sku='VAP-0001',
+            nome='Kit',
+            marca='Marca',
+            preco=Decimal('300.00'),
+            puffs=5000,
         )
 
         with self.assertRaises(ValidationError) as contexto:
@@ -134,7 +144,11 @@ class ProdutoModelTests(BaseCatalogoTests):
 
     def test_sku_exige_formato(self) -> None:
         produto = Produto(
-            subtipo=self.vape, sku='sku minusculo', nome='Kit', marca='Marca', preco=Decimal('10.00')
+            subtipo=self.vape,
+            sku='sku minusculo',
+            nome='Kit',
+            marca='Marca',
+            preco=Decimal('10.00'),
         )
 
         with self.assertRaises(ValidationError) as contexto:
@@ -150,9 +164,7 @@ class ProdutoModelTests(BaseCatalogoTests):
 
     def test_subtipo_nao_repete_nome_na_categoria(self) -> None:
         with self.assertRaises(IntegrityError), transaction.atomic():
-            Subtipo.objects.create(
-                nome='Teste vape', slug='outro-slug', categoria=Categoria.VAPE
-            )
+            Subtipo.objects.create(nome='Teste vape', slug='outro-slug', categoria=Categoria.VAPE)
 
     def test_banco_recusa_preco_zerado(self) -> None:
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -198,7 +210,9 @@ class CatalogoPublicoTests(BaseCatalogoTests):
         super().setUpTestData()
         cls.ativo = criar_produto(cls.vape, nome='Kit visível', preco=Decimal('250.00'))
         cls.inativo = criar_produto(cls.vape, nome='Kit oculto', ativo=False)
-        cls.pod = criar_produto(cls.descartavel, nome='Pod de morango', marca='Elfbar', preco=Decimal('80.00'))
+        cls.pod = criar_produto(
+            cls.descartavel, nome='Pod de morango', marca='Elfbar', preco=Decimal('80.00')
+        )
 
     def test_lista_apenas_produtos_ativos(self) -> None:
         resposta = self.client.get(reverse('produto-list'))
@@ -245,7 +259,9 @@ class CatalogoPublicoTests(BaseCatalogoTests):
         self.assertEqual(resposta.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_filtra_por_categoria(self) -> None:
-        resposta = self.client.get(reverse('produto-list'), {'categoria': Categoria.POD_DESCARTAVEL})
+        resposta = self.client.get(
+            reverse('produto-list'), {'categoria': Categoria.POD_DESCARTAVEL}
+        )
 
         nomes = [item['nome'] for item in resposta.data['results']]
         self.assertEqual(nomes, ['Pod de morango'])
@@ -268,7 +284,9 @@ class CatalogoPublicoTests(BaseCatalogoTests):
         self.assertEqual(nomes, ['Pod de morango'])
 
     def test_busca_com_caractere_de_sql_nao_quebra(self) -> None:
-        resposta = self.client.get(reverse('produto-list'), {'search': "'; DROP TABLE loja_produto; --"})
+        resposta = self.client.get(
+            reverse('produto-list'), {'search': "'; DROP TABLE loja_produto; --"}
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_200_OK)
         self.assertEqual(resposta.data['count'], 0)
@@ -295,7 +313,9 @@ class CatalogoPublicoTests(BaseCatalogoTests):
         self.assertIn(self.vape.slug, slugs)
 
     def test_subtipos_nao_aceitam_escrita(self) -> None:
-        resposta = self.client.post(reverse('subtipo-list'), {'nome': 'Novo', 'slug': 'novo'}, format='json')
+        resposta = self.client.post(
+            reverse('subtipo-list'), {'nome': 'Novo', 'slug': 'novo'}, format='json'
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -304,7 +324,9 @@ class EscritaProdutoTests(BaseCatalogoTests):
     """Cadastro, alteração e exclusão de produtos."""
 
     def test_anonimo_nao_cadastra(self) -> None:
-        resposta = self.client.post(reverse('produto-list'), payload_produto(self.vape), format='json')
+        resposta = self.client.post(
+            reverse('produto-list'), payload_produto(self.vape), format='json'
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertFalse(Produto.objects.exists())
@@ -312,7 +334,9 @@ class EscritaProdutoTests(BaseCatalogoTests):
     def test_cliente_autenticado_nao_cadastra(self) -> None:
         self.client.force_authenticate(self.cliente)
 
-        resposta = self.client.post(reverse('produto-list'), payload_produto(self.vape), format='json')
+        resposta = self.client.post(
+            reverse('produto-list'), payload_produto(self.vape), format='json'
+        )
 
         self.assertEqual(resposta.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(Produto.objects.exists())
@@ -543,9 +567,7 @@ class AuditoriaDoCatalogoTests(BaseCatalogoTests):
         produto = criar_produto(self.vape, sku='AUD-0001', estoque=5)
         self.client.force_authenticate(self.equipe)
 
-        self.client.post(
-            reverse('produto-estoque', args=[produto.id]), {'delta': 3}, format='json'
-        )
+        self.client.post(reverse('produto-estoque', args=[produto.id]), {'delta': 3}, format='json')
 
         evento = EventoAdministrativo.objects.get(acao='estoque_ajustado')
         self.assertEqual(evento.ator, self.equipe)
@@ -566,9 +588,7 @@ class AuditoriaDoCatalogoTests(BaseCatalogoTests):
         produto = criar_produto(self.vape)
         self.client.force_authenticate(self.cliente)
 
-        self.client.post(
-            reverse('produto-estoque', args=[produto.id]), {'delta': 3}, format='json'
-        )
+        self.client.post(reverse('produto-estoque', args=[produto.id]), {'delta': 3}, format='json')
 
         self.assertEqual(EventoAdministrativo.objects.count(), 0)
 

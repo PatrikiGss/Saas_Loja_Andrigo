@@ -14,14 +14,16 @@ O backend é a autoridade: preço, estoque, frete, total do pedido e permissões
 são decididos lá. O frontend apresenta e envia dados, e nunca calcula dinheiro
 nem decide quem pode o quê.
 
-As respostas da API são conferidas quando chegam: a tipagem do TypeScript some
-na compilação, então um serializer que mude quebraria a tela no meio do
-desenho. A conferência olha a forma — se a resposta é objeto, se traz as
-chaves de que aquela tela depende, se a página tem `count` e `results` — e
-transforma o desencontro num erro comum, com a mesma faixa de aviso de sempre.
-Ela não confere tipo campo a campo, de propósito: isso exigiria reescrever os
-esquemas do backend aqui, criando uma segunda descrição para sair do ar em
-silêncio quando a primeira mudar.
+Os tipos da API no frontend não são escritos à mão: saem do esquema OpenAPI
+que o backend gera dos próprios serializers (veja
+[Esquema da API](#esquema-da-api-e-tipos-gerados)). Um serializer que mude
+quebra a compilação do frontend, e não a tela de alguém.
+
+As respostas também são conferidas quando chegam, porque a tipagem some na
+compilação e o frontend publicado pode ser mais velho que a API. A conferência
+olha a forma — se a resposta é objeto, se traz as chaves de que aquela tela
+depende, se a página tem `count` e `results` — e transforma o desencontro num
+erro comum, com a mesma faixa de aviso de sempre.
 
 ## O que você precisa
 
@@ -144,7 +146,7 @@ minutos para segundos. Com cobertura:
 cd backend && coverage run manage.py test --settings=configs.settings_test && coverage report
 ```
 
-O relatório falha abaixo de 90%. Hoje está em 97%, com 324 testes — boa parte
+O relatório falha abaixo de 90%. Hoje está em 97%, com 328 testes — boa parte
 deles tentativas de ataque: mudar preço no payload, acessar pedido de outra
 conta, virar admin, IDOR, mass assignment.
 
@@ -160,7 +162,7 @@ Com cobertura:
 cd frontend && npm run cobertura
 ```
 
-São 416 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
+São 418 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
 backend. O relatório falha abaixo dos limites configurados, que ficam um pouco
 abaixo do alcançado para não quebrar o CI a cada linha nova.
 
@@ -180,19 +182,96 @@ cd frontend && npm run verificar-tipos
 cd frontend && npm run build
 ```
 
+## Lint e formatação
+
+O **ruff** cuida do backend e o **ESLint** com o **Prettier** cuidam do
+frontend. A largura de linha é 100 nos dois lados e as aspas são simples. O
+CI recusa código fora do formato, então vale rodar antes de subir.
+
+### Backend
+
+A configuração fica em `backend/ruff.toml`. As migrations ficam de fora,
+porque quem as escreve é o Django.
+
+```bash
+cd backend && ruff check .
+```
+
+```bash
+cd backend && ruff format .
+```
+
+`ruff check --fix .` corrige sozinho o que é mecânico, como a ordem dos imports
+e import sem uso.
+
+### Frontend
+
+A regra fica no ESLint e o formato fica no Prettier. O ESLint não opina sobre
+formato, então os dois não brigam.
+
+```bash
+cd frontend && npm run lint
+```
+
+```bash
+cd frontend && npm run formatar
+```
+
+`npm run lint:corrigir` aplica as correções automáticas do ESLint, e
+`npm run verificar-formato` confere o formato sem mexer nos arquivos, do mesmo
+jeito que o CI faz.
+
+O `.gitattributes` da raiz fixa o fim de linha em LF, inclusive no Windows.
+Sem ele, o `core.autocrlf` de cada máquina decidia, e o formatador acusava
+diferença em arquivo que só tinha mudado o fim de linha.
+
+## Esquema da API e tipos gerados
+
+O backend descreve a própria API em `backend/schema.yml`, gerado pelo
+drf-spectacular a partir dos serializers e das views. O frontend gera os tipos
+dele em `frontend/src/types/esquema.ts`. Nenhum dos dois arquivos se edita à
+mão.
+
+Quando um serializer ou uma view muda, regenere o esquema:
+
+```bash
+cd backend && python manage.py spectacular --file schema.yml --validate --fail-on-warn
+```
+
+E depois os tipos:
+
+```bash
+cd frontend && npm run gerar-tipos
+```
+
+A partir daí o `npm run verificar-tipos` aponta cada tela que dependia da
+forma antiga. O CI faz os dois passos e recusa o PR em que algum dos arquivos
+não bate com o código — o mesmo que já faz com as migrations.
+
+O `--fail-on-warn` recusa view que o gerador não consegue descrever sozinho:
+resposta diferente da entrada, view sem serializer, `get_queryset` que depende
+da conta. Nesses casos a view ganha um `@extend_schema` dizendo o que devolve.
+
+O esquema traz o valor das opções dos `TextChoices`, não o rótulo. Por isso os
+textos de status, de serviço de frete e os nomes das UFs continuam escritos no
+frontend — mas indexados pelo tipo gerado, então uma opção nova no backend
+quebra a compilação até ganhar texto.
+
 ## Integração contínua
 
 Dois workflows, ambos em push na `main` e em pull request:
 
-- **`backend.yml`** — `manage.py check`, `makemigrations --check`, testes com
-  cobertura mínima de 90% e `pip-audit`.
-- **`frontend.yml`** — verificação de tipos, testes com cobertura, build e
-  `npm audit`.
+- **`backend.yml`** — lint e formatação com o ruff, `manage.py check`,
+  `makemigrations --check`, esquema OpenAPI em dia, testes com cobertura
+  mínima de 90% e `pip-audit`.
+- **`frontend.yml`** — lint com o ESLint, formatação com o Prettier, tipos da
+  API em dia, verificação de tipos, testes com cobertura, build e `npm audit`.
 
 O Dependabot abre PR semanal de dependência do Python e do npm, e mensal das
 GitHub Actions. As ferramentas de build do frontend (Vite, Vitest, vue-tsc)
 sobem agrupadas, porque atualizar uma sem as outras costuma quebrar a
-compatibilidade entre elas.
+compatibilidade entre elas. O ESLint e os plugins dele também sobem juntos, pelo
+mesmo motivo.
 
 ## Sessão e autenticação
 

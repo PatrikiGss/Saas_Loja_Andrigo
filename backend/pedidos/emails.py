@@ -1,4 +1,5 @@
 """E-mail de pedido."""
+
 from __future__ import annotations
 
 from django.template.loader import render_to_string

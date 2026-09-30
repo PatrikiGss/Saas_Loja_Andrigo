@@ -27,15 +27,15 @@ defineProps<{
   descricao: string
 }>()
 
-defineSlots<
-  {
-    [nome: string]: (props: { item: T }) => unknown
-  }
->()
+defineSlots<{
+  [nome: string]: (props: { item: T }) => unknown
+}>()
 </script>
 
 <template>
   <table class="tabela">
+    <!-- O Prettier quebra a interpolação de <caption> em três linhas. -->
+    <!-- prettier-ignore -->
     <caption class="apenas-leitor">{{ descricao }}</caption>
 
     <thead>
@@ -44,7 +44,7 @@ defineSlots<
           v-for="coluna in colunas"
           :key="coluna.chave"
           scope="col"
-          :class="{ 'tabela__fim': coluna.aoFim }"
+          :class="{ tabela__fim: coluna.aoFim }"
         >
           <span v-if="coluna.titulo">{{ coluna.titulo }}</span>
           <span v-else class="apenas-leitor">Ações</span>
@@ -57,7 +57,7 @@ defineSlots<
         <td
           v-for="coluna in colunas"
           :key="coluna.chave"
-          :class="{ 'tabela__fim': coluna.aoFim }"
+          :class="{ tabela__fim: coluna.aoFim }"
           :data-rotulo="coluna.titulo"
         >
           <slot :name="coluna.chave" :item="item" />

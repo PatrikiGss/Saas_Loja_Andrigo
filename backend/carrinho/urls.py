@@ -1,4 +1,5 @@
 """Rotas do carrinho."""
+
 from django.urls import path
 
 from carrinho.views import CarrinhoView, ItemCarrinhoView, ItensCarrinhoView

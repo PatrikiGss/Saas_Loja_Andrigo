@@ -84,9 +84,11 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(servicoCarrinho.buscarCarrinho).mockReset().mockResolvedValue(carrinhoCom())
   vi.mocked(servicoEnderecos.listarEnderecos).mockReset().mockResolvedValue([ENDERECO])
-  vi.mocked(servicoCheckout.cotarFrete).mockReset().mockResolvedValue([
-    { servico: 'economico', nome: 'Econômico', preco: '19.90', prazo_em_dias: 4 },
-  ])
+  vi.mocked(servicoCheckout.cotarFrete)
+    .mockReset()
+    .mockResolvedValue([
+      { servico: 'economico', nome: 'Econômico', preco: '19.90', prazo_em_dias: 4 },
+    ])
   vi.mocked(servicoCheckout.fecharPedido).mockReset().mockResolvedValue(PEDIDO)
 })
 

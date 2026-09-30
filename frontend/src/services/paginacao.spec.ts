@@ -18,8 +18,8 @@ describe('coletarTudo', () => {
     // O backend pagina de 20 em 20 e não aceita tamanho de página do cliente,
     // então uma lista curta que a tela precisa inteira chega cortada.
     get
-      .mockResolvedValueOnce(pagina(['a', 'b'], 'http://api/x/?page=2') as never)
-      .mockResolvedValueOnce(pagina(['c'], null) as never)
+      .mockResolvedValueOnce(pagina(['a', 'b'], 'http://api/x/?page=2'))
+      .mockResolvedValueOnce(pagina(['c'], null))
 
     expect(await coletarTudo<string>('/x/')).toEqual(['a', 'b', 'c'])
     expect(get).toHaveBeenNthCalledWith(1, '/x/')
@@ -27,21 +27,21 @@ describe('coletarTudo', () => {
   })
 
   it('para na primeira página quando não há próxima', async () => {
-    get.mockResolvedValue(pagina(['a'], null) as never)
+    get.mockResolvedValue(pagina(['a'], null))
 
     expect(await coletarTudo<string>('/x/')).toEqual(['a'])
     expect(get).toHaveBeenCalledTimes(1)
   })
 
   it('devolve lista vazia sem estourar', async () => {
-    get.mockResolvedValue(pagina([], null) as never)
+    get.mockResolvedValue(pagina([], null))
 
     expect(await coletarTudo<string>('/x/')).toEqual([])
   })
 
   it('não entra em laço infinito se o next nunca acabar', async () => {
     // Resposta inesperada não pode travar a aplicação.
-    get.mockResolvedValue(pagina(['a'], 'http://api/x/?page=99') as never)
+    get.mockResolvedValue(pagina(['a'], 'http://api/x/?page=99'))
 
     const itens = await coletarTudo<string>('/x/')
 

@@ -1,4 +1,5 @@
 """Consulta de pedidos no admin."""
+
 from __future__ import annotations
 
 from django.contrib import admin

@@ -54,7 +54,11 @@ function pedido(numero: string, status: StatusPedido = 'aguardando_pagamento'): 
   }
 }
 
-function usuario(id: number, email: string, nivel: UsuarioAdmin['nivel'] = 'usuario'): UsuarioAdmin {
+function usuario(
+  id: number,
+  email: string,
+  nivel: UsuarioAdmin['nivel'] = 'usuario',
+): UsuarioAdmin {
   return {
     id,
     email,
@@ -113,7 +117,10 @@ async function montar(tela: Component, caminho: string) {
 }
 
 async function clicar(tela: ReturnType<typeof mount>, texto: string) {
-  await tela.findAll('button').find((b) => b.text().includes(texto))!.trigger('click')
+  await tela
+    .findAll('button')
+    .find((b) => b.text().includes(texto))!
+    .trigger('click')
   await flushPromises()
 }
 
@@ -177,7 +184,10 @@ describe('gestão de pedidos', () => {
 
   it('oferece todos os status, sem copiar o mapa de transições do backend', async () => {
     const { montada } = await montar(PedidosView, '/admin/pedidos')
-    const opcoes = montada.get('select').findAll('option').map((o) => o.text())
+    const opcoes = montada
+      .get('select')
+      .findAll('option')
+      .map((o) => o.text())
 
     expect(opcoes).toEqual([
       'Escolha',

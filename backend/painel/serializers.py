@@ -1,4 +1,5 @@
 """Serializers de conta, perfil e administração de usuários."""
+
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
@@ -7,6 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db.models import Q
 from django.utils.http import urlsafe_base64_decode
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
@@ -36,6 +38,20 @@ def conta_do_token(uid: str, token: str, gerador=default_token_generator) -> Usu
     return usuario if gerador.check_token(usuario, token) else None
 
 
+class ContaCriadaSerializer(serializers.Serializer):
+    """Resposta do cadastro: o mínimo, e nunca a senha nem o hash dela."""
+
+    id = serializers.IntegerField(source='pk', read_only=True)
+    email = serializers.EmailField(read_only=True)
+    nome = serializers.CharField(source='first_name', read_only=True)
+    nivel = serializers.SerializerMethodField()
+    ativo = serializers.BooleanField(source='is_active', read_only=True)
+
+    @extend_schema_field(serializers.ChoiceField(choices=Nivel.choices))
+    def get_nivel(self, usuario: Usuario) -> str:
+        return nivel_de(usuario)
+
+
 class CadastroSerializer(serializers.Serializer):
     """Cadastro público, que cria apenas contas de nível usuário.
 
@@ -45,7 +61,9 @@ class CadastroSerializer(serializers.Serializer):
     """
 
     email = serializers.EmailField(max_length=254)
-    password = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
+    password = serializers.CharField(
+        write_only=True, max_length=128, style={'input_type': 'password'}
+    )
     nome = serializers.CharField(max_length=150, required=False, allow_blank=True, default='')
 
     def validate_email(self, valor: str) -> str:
@@ -84,14 +102,7 @@ class CadastroSerializer(serializers.Serializer):
         )
 
     def to_representation(self, instance: Usuario) -> dict:
-        """Resposta mínima: nunca devolve a senha nem o hash dela."""
-        return {
-            'id': instance.pk,
-            'email': instance.email,
-            'nome': instance.first_name,
-            'nivel': nivel_de(instance),
-            'ativo': instance.is_active,
-        }
+        return ContaCriadaSerializer(instance, context=self.context).data
 
 
 class AtivarContaSerializer(serializers.Serializer):
@@ -138,7 +149,9 @@ class RefreshSerializer(TokenRefreshSerializer):
         try:
             return super().validate(attrs)
         except Usuario.DoesNotExist as erro:
-            raise AuthenticationFailed('Token inválido para esta conta.', 'no_active_account') from erro
+            raise AuthenticationFailed(
+                'Token inválido para esta conta.', 'no_active_account'
+            ) from erro
 
 
 class PerfilSerializer(serializers.ModelSerializer):
@@ -149,9 +162,13 @@ class PerfilSerializer(serializers.ModelSerializer):
     """
 
     email = serializers.EmailField(source='usuario.email', read_only=True)
-    nome = serializers.CharField(source='usuario.first_name', max_length=150, required=False, allow_blank=True)
-    sobrenome = serializers.CharField(source='usuario.last_name', max_length=150, required=False, allow_blank=True)
-    nivel = serializers.CharField(read_only=True)
+    nome = serializers.CharField(
+        source='usuario.first_name', max_length=150, required=False, allow_blank=True
+    )
+    sobrenome = serializers.CharField(
+        source='usuario.last_name', max_length=150, required=False, allow_blank=True
+    )
+    nivel = serializers.ChoiceField(choices=Nivel.choices, read_only=True)
 
     class Meta:
         model = Perfil
@@ -185,6 +202,7 @@ class UsuarioAdminSerializer(serializers.ModelSerializer):
         fields = ('id', 'email', 'nome', 'sobrenome', 'telefone', 'nivel', 'ativo', 'criado_em')
         read_only_fields = ('id', 'email')
 
+    @extend_schema_field(serializers.ChoiceField(choices=Nivel.choices))
     def get_nivel(self, usuario: Usuario) -> str:
         return nivel_de(usuario)
 
@@ -217,8 +235,12 @@ class EnderecoSerializer(serializers.ModelSerializer):
 class AlterarSenhaSerializer(serializers.Serializer):
     """Troca de senha pela própria conta, com confirmação da senha atual."""
 
-    senha_atual = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
-    nova_senha = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
+    senha_atual = serializers.CharField(
+        write_only=True, max_length=128, style={'input_type': 'password'}
+    )
+    nova_senha = serializers.CharField(
+        write_only=True, max_length=128, style={'input_type': 'password'}
+    )
 
     def validate_senha_atual(self, valor: str) -> str:
         if not self.context['request'].user.check_password(valor):
@@ -246,7 +268,9 @@ class RedefinirSenhaSerializer(serializers.Serializer):
 
     uid = serializers.CharField(max_length=40)
     token = serializers.CharField(max_length=64)
-    nova_senha = serializers.CharField(write_only=True, max_length=128, style={'input_type': 'password'})
+    nova_senha = serializers.CharField(
+        write_only=True, max_length=128, style={'input_type': 'password'}
+    )
 
     def validate(self, attrs: dict) -> dict:
         usuario = conta_do_token(attrs['uid'], attrs['token'])

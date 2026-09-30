@@ -15,8 +15,14 @@ import CampoTexto from '@/components/CampoTexto.vue'
 import { deErro, type CamposComErro, type ErroDaApi } from '@/services/erros'
 import { apenasDigitos } from '@/utils/formato'
 import { consultarCep } from '../services/enderecos'
-import { UFS } from '../ufs'
-import type { DadosDeEndereco, Endereco } from '../types'
+import { UFS, ehSiglaDaUF } from '../ufs'
+import type { DadosDeEndereco, Endereco, SiglaDaUF } from '../types'
+
+/**
+ * O formulário em edição. Todo campo existe como texto, mesmo os que a API
+ * trata como opcionais, e a UF pode ainda não ter sido escolhida.
+ */
+type Rascunho = Required<Omit<DadosDeEndereco, 'uf'>> & { uf: SiglaDaUF | '' }
 
 const props = withDefaults(
   defineProps<{
@@ -30,7 +36,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{ enviar: [dados: DadosDeEndereco] }>()
 
-const dados = ref<DadosDeEndereco>({
+const dados = ref<Rascunho>({
   apelido: props.valorInicial?.apelido ?? '',
   cep: props.valorInicial?.cep ?? '',
   logradouro: props.valorInicial?.logradouro ?? '',
@@ -62,7 +68,9 @@ async function buscarCep(): Promise<void> {
       logradouro: encontrado.logradouro || dados.value.logradouro,
       bairro: encontrado.bairro || dados.value.bairro,
       cidade: encontrado.cidade || dados.value.cidade,
-      uf: encontrado.uf || dados.value.uf,
+      // O provedor devolve texto. Sigla que o backend não conhece deixaria o
+      // seletor em branco, então só entra a que ele aceita.
+      uf: ehSiglaDaUF(encontrado.uf) ? encontrado.uf : dados.value.uf,
     }
   } catch (falha) {
     const problema: ErroDaApi = deErro(falha)
@@ -73,8 +81,14 @@ async function buscarCep(): Promise<void> {
 }
 
 function enviar(): void {
-  // O CEP vai só com os dígitos: o backend valida com `^\d{8}$`.
-  emit('enviar', { ...dados.value, cep: apenasDigitos(dados.value.cep) })
+  emit('enviar', {
+    ...dados.value,
+    // O CEP vai só com os dígitos: o backend valida com `^\d{8}$`.
+    cep: apenasDigitos(dados.value.cep),
+    // UF não escolhida vai vazia mesmo. Quem recusa é o servidor, que devolve
+    // o erro no campo, do mesmo jeito que faz com qualquer outro.
+    uf: dados.value.uf as SiglaDaUF,
+  })
 }
 </script>
 

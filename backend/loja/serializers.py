@@ -1,4 +1,5 @@
 """Serializers do catálogo."""
+
 from __future__ import annotations
 
 import copy
@@ -6,7 +7,7 @@ import copy
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from rest_framework import serializers
 
-from loja.models import Produto, Subtipo
+from loja.models import Categoria, Produto, Subtipo
 
 #: Campos visíveis ao cliente final. Estoque, status e datas ficam de fora.
 CAMPOS_CATALOGO = (
@@ -39,7 +40,9 @@ class SubtipoSerializer(serializers.ModelSerializer):
 class ProdutoSerializer(serializers.ModelSerializer):
     """Catálogo público: somente leitura."""
 
-    categoria = serializers.CharField(source='subtipo.categoria', read_only=True)
+    categoria = serializers.ChoiceField(
+        choices=Categoria.choices, source='subtipo.categoria', read_only=True
+    )
     subtipo = serializers.SlugRelatedField(slug_field='slug', read_only=True)
     em_estoque = serializers.BooleanField(read_only=True)
 

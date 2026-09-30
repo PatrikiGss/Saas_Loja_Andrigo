@@ -1,8 +1,10 @@
 """Endpoints do carrinho da conta autenticada."""
+
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db.models import Prefetch, QuerySet
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
@@ -36,6 +38,7 @@ class ItensCarrinhoView(generics.GenericAPIView):
     serializer_class = AdicionarItemSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
+    @extend_schema(responses={201: ItemCarrinhoSerializer})
     def post(self, request: Request) -> Response:
         """Adiciona o produto. Produto repetido soma à quantidade do item."""
         entrada = self.get_serializer(data=request.data)
@@ -49,12 +52,19 @@ class ItensCarrinhoView(generics.GenericAPIView):
 
         return Response(ItemCarrinhoSerializer(item).data, status=status.HTTP_201_CREATED)
 
+    # O id da operação sairia igual ao da exclusão de um item só.
+    @extend_schema(operation_id='carrinho_itens_limpar', responses={204: None})
     def delete(self, request: Request) -> Response:
         """Esvazia o carrinho. O carrinho em si continua existindo."""
         Carrinho.objects.do_usuario(request.user).itens.all().delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema_view(
+    # A alteração recebe só a quantidade, mas devolve o item inteiro.
+    put=extend_schema(responses=ItemCarrinhoSerializer),
+    patch=extend_schema(responses=ItemCarrinhoSerializer),
+)
 class ItemCarrinhoView(generics.RetrieveUpdateDestroyAPIView):
     """Item do próprio carrinho.
 

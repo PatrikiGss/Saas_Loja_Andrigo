@@ -1,4 +1,5 @@
 """Rotas do catálogo."""
+
 from rest_framework.routers import DefaultRouter
 
 from loja.views import ProdutoViewSet, SubtipoViewSet

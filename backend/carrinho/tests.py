@@ -1,4 +1,5 @@
 """Testes do carrinho: itens, quantidades, segurança e integridade."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -61,7 +62,9 @@ class BaseCarrinhoTests(APITestCase):
         self.outro = criar_usuario('outro@example.com')
         autenticar(self.client, self.usuario)
 
-    def adicionar(self, produto: Produto | None = None, quantidade: int = 1, cliente: APIClient | None = None):
+    def adicionar(
+        self, produto: Produto | None = None, quantidade: int = 1, cliente: APIClient | None = None
+    ):
         cliente = cliente or self.client
         return cliente.post(
             reverse('carrinho-itens'),
@@ -366,16 +369,20 @@ class SegurancaCarrinhoTests(BaseCarrinhoTests):
 
         self.assertEqual(anonimo.get(reverse('carrinho')).status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(
-            anonimo.post(reverse('carrinho-itens'), {'produto': str(self.produto.id), 'quantidade': 1},
-                         format='json').status_code,
+            anonimo.post(
+                reverse('carrinho-itens'),
+                {'produto': str(self.produto.id), 'quantidade': 1},
+                format='json',
+            ).status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
         self.assertEqual(
             anonimo.delete(reverse('carrinho-itens')).status_code, status.HTTP_401_UNAUTHORIZED
         )
         self.assertEqual(
-            anonimo.patch(reverse('carrinho-item', args=[item.pk]), {'quantidade': 1},
-                          format='json').status_code,
+            anonimo.patch(
+                reverse('carrinho-item', args=[item.pk]), {'quantidade': 1}, format='json'
+            ).status_code,
             status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -424,8 +431,12 @@ class SegurancaCarrinhoTests(BaseCarrinhoTests):
 
         resposta = self.client.post(
             reverse('carrinho-itens'),
-            {'produto': str(self.produto.id), 'quantidade': 1,
-             'usuario': self.outro.pk, 'carrinho': carrinho_do_outro.pk},
+            {
+                'produto': str(self.produto.id),
+                'quantidade': 1,
+                'usuario': self.outro.pk,
+                'carrinho': carrinho_do_outro.pk,
+            },
             format='json',
         )
 
@@ -437,8 +448,13 @@ class SegurancaCarrinhoTests(BaseCarrinhoTests):
     def test_payload_nao_altera_o_preco(self) -> None:
         resposta = self.client.post(
             reverse('carrinho-itens'),
-            {'produto': str(self.produto.id), 'quantidade': 1, 'preco': '0.01', 'subtotal': '0.01',
-             'total': '0.01'},
+            {
+                'produto': str(self.produto.id),
+                'quantidade': 1,
+                'preco': '0.01',
+                'subtotal': '0.01',
+                'total': '0.01',
+            },
             format='json',
         )
 
@@ -461,8 +477,13 @@ class SegurancaCarrinhoTests(BaseCarrinhoTests):
 
         resposta = self.client.patch(
             reverse('carrinho-item', args=[item.pk]),
-            {'quantidade': 2, 'produto': str(self.outro_produto.id), 'carrinho': 999,
-             'id': 999, 'is_staff': True},
+            {
+                'quantidade': 2,
+                'produto': str(self.outro_produto.id),
+                'carrinho': 999,
+                'id': 999,
+                'is_staff': True,
+            },
             format='json',
         )
 

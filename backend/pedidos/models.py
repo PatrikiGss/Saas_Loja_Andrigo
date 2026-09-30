@@ -1,4 +1,5 @@
 """Pedidos: o carrinho convertido em compra."""
+
 from __future__ import annotations
 
 import uuid
@@ -54,7 +55,7 @@ def gerar_numero() -> str:
 
 
 class PedidoQuerySet(models.QuerySet):
-    def fechar_carrinho(self, usuario, endereco: Endereco, servico: str) -> 'Pedido':
+    def fechar_carrinho(self, usuario, endereco: Endereco, servico: str) -> Pedido:
         """Converte o carrinho da conta em pedido.
 
         Tudo acontece em uma transação: ou sai o pedido inteiro, com itens e
@@ -73,9 +74,7 @@ class PedidoQuerySet(models.QuerySet):
             subtotal = sum(
                 (item.produto.preco * item.quantidade for item in itens), Decimal('0.00')
             )
-            opcao = cotar_servico(
-                servico, endereco.uf, sum(item.quantidade for item in itens)
-            )
+            opcao = cotar_servico(servico, endereco.uf, sum(item.quantidade for item in itens))
 
             pedido = self.create(
                 usuario=usuario,
@@ -117,13 +116,9 @@ class PedidoQuerySet(models.QuerySet):
 
     def _conferir_pendentes(self, usuario) -> None:
         """Recusa a conta que já acumulou pedidos esperando pagamento."""
-        pendentes = self.filter(
-            usuario=usuario, status=StatusPedido.AGUARDANDO_PAGAMENTO
-        ).count()
+        pendentes = self.filter(usuario=usuario, status=StatusPedido.AGUARDANDO_PAGAMENTO).count()
         if pendentes >= PEDIDOS_PENDENTES_MAXIMOS:
-            raise ValidationError(
-                {'pedido': 'Há pedidos demais aguardando pagamento nesta conta.'}
-            )
+            raise ValidationError({'pedido': 'Há pedidos demais aguardando pagamento nesta conta.'})
 
 
 class Pedido(models.Model):
