@@ -18,7 +18,13 @@ export default defineConfigWithVueTs(
   },
 
   // `esquema.ts` é gerado de backend/schema.yml por `npm run gerar-tipos`.
-  globalIgnores(['**/dist/**', '**/coverage/**', 'src/types/esquema.ts']),
+  globalIgnores([
+    '**/dist/**',
+    '**/coverage/**',
+    'test-results/**',
+    'playwright-report/**',
+    'src/types/esquema.ts',
+  ]),
 
   pluginVue.configs['flat/recommended'],
   vueTsConfigs.recommendedTypeChecked,

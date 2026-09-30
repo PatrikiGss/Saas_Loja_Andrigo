@@ -8,6 +8,7 @@ omit =
     configs/wsgi.py
     configs/settings.py
     configs/settings_test.py
+    configs/settings_e2e.py
 
 [report]
 show_missing = True

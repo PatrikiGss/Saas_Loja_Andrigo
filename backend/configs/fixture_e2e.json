@@ -1,0 +1,16 @@
+[
+  {
+    "model": "auth.user",
+    "pk": 1,
+    "fields": {
+      "username": "admin@loja.test",
+      "email": "admin@loja.test",
+      "password": "md5$e2e$55e92078c6b350b9977a733f6d46a223",
+      "first_name": "Admin",
+      "is_staff": true,
+      "is_superuser": false,
+      "is_active": true,
+      "date_joined": "2026-01-01T00:00:00Z"
+    }
+  }
+]

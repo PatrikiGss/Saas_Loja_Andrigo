@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "lint:corrigir": "eslint . --fix",
     "formatar": "prettier --write .",
-    "verificar-formato": "prettier --check ."
+    "verificar-formato": "prettier --check .",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "axios": "^1.13.2",
@@ -24,6 +25,7 @@
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.2",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vitest/coverage-v8": "^5.0.1",

@@ -182,6 +182,37 @@ cd frontend && npm run verificar-tipos
 cd frontend && npm run build
 ```
 
+### Ponta a ponta
+
+Os testes acima trocam a API por dublês. Os de ponta a ponta, com o
+Playwright, põem o frontend de verdade contra o backend de verdade num
+navegador: entrar, continuar dentro depois de recarregar, sair, errar a senha,
+e comprar do catálogo até o pedido registrado — conferindo que o total que a
+tela estima é o que o servidor cobra.
+
+Na primeira vez, baixe o navegador:
+
+```bash
+cd frontend && npx playwright install chromium
+```
+
+Depois, com o venv ativado:
+
+```bash
+cd frontend && npm run e2e
+```
+
+O Playwright sobe o backend com `manage.py testserver`, que cria um banco de
+teste do zero e carrega a conta admin de `backend/configs/fixture_e2e.json`,
+e sobe o frontend com o Vite. **A porta 8000 precisa estar livre**: a suíte se
+recusa a rodar contra o servidor de desenvolvimento, que criaria contas e
+pedidos no seu banco. Cada teste cria a própria conta, ativada pela API de
+gestão, porque o e-mail de ativação não sai nos testes.
+
+Duas variáveis opcionais: `E2E_MANAGE` troca o jeito de chamar o `manage.py`
+(o padrão é `python manage.py`), e `E2E_NAVEGADOR=msedge` usa o Edge já
+instalado em vez de baixar o Chromium.
+
 ## Lint e formatação
 
 O **ruff** cuida do backend e o **ESLint** com o **Prettier** cuidam do
@@ -259,13 +290,16 @@ quebra a compilação até ganhar texto.
 
 ## Integração contínua
 
-Dois workflows, ambos em push na `main` e em pull request:
+Três workflows, todos em push na `main` e em pull request:
 
 - **`backend.yml`** — lint e formatação com o ruff, `manage.py check`,
   `makemigrations --check`, esquema OpenAPI em dia, testes com cobertura
   mínima de 90% e `pip-audit`.
 - **`frontend.yml`** — lint com o ESLint, formatação com o Prettier, tipos da
   API em dia, verificação de tipos, testes com cobertura, build e `npm audit`.
+- **`e2e.yml`** — os testes ponta a ponta no Chromium. Com falha, o relatório
+  do Playwright fica como artefato da execução, com tela, rede e console de
+  cada passo.
 
 O Dependabot abre PR semanal de dependência do Python e do npm, e mensal das
 GitHub Actions. As ferramentas de build do frontend (Vite, Vitest, vue-tsc)

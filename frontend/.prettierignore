@@ -1,5 +1,7 @@
 dist
 coverage
+test-results
+playwright-report
 package-lock.json
 # Gerado de backend/schema.yml por `npm run gerar-tipos`.
 src/types/esquema.ts
