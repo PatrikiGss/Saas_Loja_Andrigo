@@ -2,12 +2,9 @@
 import type { Esquema } from '@/types/api'
 
 /**
- * Produto como o carrinho o mostra. `disponivel` resume ativo + em estoque,
- * sem expor a quantidade em estoque.
+ * Linha do carrinho. `subtotal` vem calculado pelo servidor, e o
+ * `disponivel` do produto resume ativo + em estoque, sem expor a quantidade.
  */
-export type ProdutoNoCarrinho = Esquema<'ProdutoNoCarrinho'>
-
-/** Linha do carrinho. `subtotal` vem calculado pelo servidor. */
 export type ItemCarrinho = Esquema<'ItemCarrinho'>
 
 /**

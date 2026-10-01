@@ -1,8 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, type Component } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { type Component } from 'vue'
 
 import App from '@/App.vue'
 import LayoutAdmin from '@/modules/admin/layouts/LayoutAdmin.vue'
@@ -10,52 +9,32 @@ import { useSessao } from '@/modules/auth/stores/sessao'
 import * as servicoAuth from '@/modules/auth/services/auth'
 import { useCarrinho } from '@/modules/carrinho/stores/carrinho'
 import type { Nivel } from '@/modules/auth/types'
+import { umItemDeCarrinho, umPerfil } from '@/testes/fixtures'
 import LayoutLoja from './LayoutLoja.vue'
+import { montarNaRota } from '../testes/roteador'
 
 vi.mock('@/modules/auth/services/auth')
 
-const Vazio = defineComponent({ setup: () => () => h('div', 'conteúdo') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/', name: 'inicio', component: Vazio },
-      { path: '/catalogo', name: 'catalogo', component: Vazio },
-      { path: '/carrinho', name: 'carrinho', component: Vazio },
-      { path: '/pedidos', name: 'pedidos', component: Vazio },
-      { path: '/entrar', name: 'entrar', component: Vazio },
-      { path: '/conta', name: 'conta', component: Vazio },
-      { path: '/admin/produtos', name: 'admin-produtos', component: Vazio, meta: { admin: true } },
-      { path: '/admin/pedidos', name: 'admin-pedidos', component: Vazio, meta: { admin: true } },
-      { path: '/admin/usuarios', name: 'admin-usuarios', component: Vazio, meta: { admin: true } },
-    ],
-  })
+const ROTAS = {
+  inicio: '/',
+  catalogo: '/catalogo',
+  carrinho: '/carrinho',
+  pedidos: '/pedidos',
+  entrar: '/entrar',
+  conta: '/conta',
+  'admin-produtos': { caminho: '/admin/produtos', meta: { admin: true } },
+  'admin-pedidos': { caminho: '/admin/pedidos', meta: { admin: true } },
+  'admin-usuarios': { caminho: '/admin/usuarios', meta: { admin: true } },
 }
 
 function entrarComo(nivel: Nivel): void {
   const sessao = useSessao()
   sessao.token = 'token'
-  sessao.usuario = {
-    email: 'conta@example.com',
-    nome: 'Ana',
-    sobrenome: 'Lima',
-    telefone: '',
-    nivel,
-  }
+  sessao.usuario = umPerfil({ nivel })
 }
 
-async function montar(moldura: Component, caminho = '/') {
-  const router = criarRouter()
-  await router.push(caminho)
-  await router.isReady()
-
-  const tela = mount(moldura, {
-    global: { plugins: [router] },
-    slots: { default: '<p>miolo</p>' },
-  })
-  await flushPromises()
-  return { tela, router }
+function montar(moldura: Component, caminho = '/') {
+  return montarNaRota(moldura, caminho, ROTAS, { slots: { default: '<p>miolo</p>' } })
 }
 
 function enderecos(tela: ReturnType<typeof mount>): (string | undefined)[] {
@@ -91,21 +70,7 @@ describe('LayoutLoja', () => {
   it('conta os itens do carrinho ao lado do link', async () => {
     entrarComo('usuario')
     const carrinho = useCarrinho()
-    carrinho.itens = [
-      {
-        id: 1,
-        produto: {
-          id: 'p',
-          sku: 'S',
-          nome: 'N',
-          preco: '1.00',
-          categoria: 'pod_descartavel',
-          disponivel: true,
-        },
-        quantidade: 3,
-        subtotal: '3.00',
-      },
-    ]
+    carrinho.itens = [umItemDeCarrinho({ quantidade: 3 })]
 
     const { tela } = await montar(LayoutLoja)
 
@@ -206,12 +171,7 @@ describe('LayoutAdmin', () => {
 describe('App', () => {
   it('troca a moldura conforme a rota', async () => {
     entrarComo('admin')
-    const router = criarRouter()
-    await router.push('/')
-    await router.isReady()
-
-    const tela = mount(App, { global: { plugins: [router] } })
-    await flushPromises()
+    const { tela, router } = await montarNaRota(App, '/', ROTAS)
     expect(tela.findComponent(LayoutLoja).exists()).toBe(true)
 
     await router.push('/admin/produtos')

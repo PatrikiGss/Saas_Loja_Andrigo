@@ -10,6 +10,15 @@ import { paginaDe } from './conferencia'
 import { http } from './http'
 import type { Paginado } from '@/types/api'
 
+/** Tamanho da página do backend (`PAGE_SIZE` do DRF), que não aceita outro. */
+export const POR_PAGINA = 20
+
+/** A página pedida na rota (`?pagina=`), ou a primeira se não houver uma válida. */
+export function paginaDaRota(valor: unknown): number {
+  const numero = Number(valor)
+  return Number.isInteger(numero) && numero > 1 ? numero : 1
+}
+
 /** Teto de páginas, para que uma resposta inesperada não vire laço infinito. */
 const PAGINAS_MAXIMAS = 25
 

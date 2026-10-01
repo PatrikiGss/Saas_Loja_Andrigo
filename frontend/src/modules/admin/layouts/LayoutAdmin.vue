@@ -11,31 +11,20 @@
  * backend, com `EhAdmin`, e ele continuaria recusando se alguém chegasse
  * aqui por outro caminho.
  */
-import { RouterLink, useRouter } from 'vue-router'
-import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import { NOME_DA_LOJA } from '@/app/config'
+import { useSair } from '@/modules/auth/sair'
 import { useSessao } from '@/modules/auth/stores/sessao'
 
-const router = useRouter()
 const sessao = useSessao()
-const saindo = ref(false)
+const { saindo, sair } = useSair()
 
 const secoes = [
   { rota: '/admin/produtos', texto: 'Produtos' },
   { rota: '/admin/pedidos', texto: 'Pedidos' },
   { rota: '/admin/usuarios', texto: 'Usuários' },
 ]
-
-async function sair() {
-  saindo.value = true
-  try {
-    await sessao.sair()
-    await router.push('/')
-  } finally {
-    saindo.value = false
-  }
-}
 </script>
 
 <template>

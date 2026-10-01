@@ -1,9 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AjusteDeEstoque from './AjusteDeEstoque.vue'
 import * as servico from '../services/produtos'
+import { falhaComResposta } from '../../../testes/falhas'
 
 vi.mock('../services/produtos')
 
@@ -61,15 +61,8 @@ describe('AjusteDeEstoque', () => {
   })
 
   it('mostra a recusa da baixa maior que o disponível', async () => {
-    const config = { headers: new AxiosHeaders() }
     vi.mocked(servico.ajustarEstoque).mockRejectedValue(
-      new AxiosError('falhou', '400', config, {}, {
-        status: 400,
-        data: { delta: ['Estoque insuficiente para a baixa solicitada.'] },
-        statusText: '',
-        headers: {},
-        config,
-      } as AxiosResponse),
+      falhaComResposta(400, { delta: ['Estoque insuficiente para a baixa solicitada.'] }),
     )
     const tela = montar()
 

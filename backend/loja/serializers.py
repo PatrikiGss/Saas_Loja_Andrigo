@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 
-from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -15,6 +14,7 @@ from loja.models import (
     Produto,
     Subtipo,
 )
+from painel.erros import recusa_do_modelo
 
 #: Campos visíveis ao cliente final. Estoque, status e datas ficam de fora.
 CAMPOS_CATALOGO = (
@@ -100,11 +100,9 @@ class ProdutoGestaoSerializer(ProdutoSerializer):
     def validate(self, attrs: dict) -> dict:
         """Aplica as validações do modelo, que são a regra de domínio."""
         produto = self._projetar(attrs)
-        try:
+        with recusa_do_modelo():
             # A unicidade fica com o DRF, que devolve a mensagem por campo.
             produto.full_clean(validate_unique=False)
-        except ErroDeValidacaoDoModelo as erro:
-            raise serializers.ValidationError(serializers.as_serializer_error(erro)) from erro
         return attrs
 
     def _projetar(self, attrs: dict) -> Produto:

@@ -1,18 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { agruparPorCategoria, corDaCategoria } from './categorias'
-import type { Subtipo } from './types'
-
-function subtipo(slug: string, categoria: string, nome: string): Subtipo {
-  return {
-    slug,
-    nome,
-    categoria: categoria as Subtipo['categoria'],
-    categoria_display: categoria === 'essencia' ? 'Essência' : 'Pod descartável',
-    especificacoes:
-      categoria === 'essencia' ? ['volume_ml', 'nicotina_mg_ml'] : ['puffs', 'nicotina_mg_ml'],
-  }
-}
+import { umSubtipo } from '../../testes/fixtures'
 
 describe('corDaCategoria', () => {
   it('dá um matiz para cada categoria do backend', () => {
@@ -28,9 +17,9 @@ describe('corDaCategoria', () => {
 describe('agruparPorCategoria', () => {
   it('junta os subtipos e usa o nome legível que veio da API', () => {
     const categorias = agruparPorCategoria([
-      subtipo('nic-salt', 'essencia', 'Nic salt'),
-      subtipo('freebase', 'essencia', 'Freebase'),
-      subtipo('600-puffs', 'pod_descartavel', '600 puffs'),
+      umSubtipo('nic-salt', 'essencia', 'Nic salt'),
+      umSubtipo('freebase', 'essencia', 'Freebase'),
+      umSubtipo('600-puffs', 'pod_descartavel', '600 puffs'),
     ])
 
     expect(categorias).toHaveLength(2)
@@ -42,8 +31,8 @@ describe('agruparPorCategoria', () => {
 
   it('preserva a ordem em que a API mandou', () => {
     const categorias = agruparPorCategoria([
-      subtipo('600-puffs', 'pod_descartavel', '600 puffs'),
-      subtipo('nic-salt', 'essencia', 'Nic salt'),
+      umSubtipo('600-puffs', 'pod_descartavel', '600 puffs'),
+      umSubtipo('nic-salt', 'essencia', 'Nic salt'),
     ])
 
     expect(categorias.map((categoria) => categoria.slug)).toEqual(['pod_descartavel', 'essencia'])

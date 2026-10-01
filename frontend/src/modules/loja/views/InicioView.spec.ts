@@ -1,59 +1,30 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import InicioView from './InicioView.vue'
 import * as servico from '../services/catalogo'
-import type { Subtipo } from '../types'
+import { falhaSemResposta } from '../../../testes/falhas'
+import { umSubtipo } from '../../../testes/fixtures'
+import { montarNaRota, roteadorDeTeste } from '../../../testes/roteador'
 
 vi.mock('../services/catalogo')
 
-function subtipo(slug: string, categoria: Subtipo['categoria'], nome: string): Subtipo {
-  return {
-    slug,
-    nome,
-    categoria,
-    categoria_display: categoria === 'essencia' ? 'Essência' : 'Pod descartável',
-    especificacoes:
-      categoria === 'essencia' ? ['volume_ml', 'nicotina_mg_ml'] : ['puffs', 'nicotina_mg_ml'],
-  }
-}
-
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/', name: 'inicio', component: Vazio },
-      { path: '/catalogo', name: 'catalogo', component: Vazio },
-    ],
-  })
+const ROTAS = {
+  inicio: '/',
+  catalogo: '/catalogo',
 }
 
 async function montar() {
-  const router = criarRouter()
-  await router.push('/')
-  await router.isReady()
-
-  const tela = mount(InicioView, { global: { plugins: [router] } })
-  await flushPromises()
-  return tela
-}
-
-function erroDeRede(): AxiosError {
-  return new AxiosError('falhou', undefined, { headers: new AxiosHeaders() }, {})
+  return (await montarNaRota(InicioView, '/', ROTAS)).tela
 }
 
 beforeEach(() => {
   vi.mocked(servico.listarSubtipos)
     .mockReset()
     .mockResolvedValue([
-      subtipo('essencia-nic-salt', 'essencia', 'Nic salt'),
-      subtipo('essencia-freebase', 'essencia', 'Freebase'),
-      subtipo('descartavel-box', 'pod_descartavel', 'Box'),
+      umSubtipo('essencia-nic-salt', 'essencia', 'Nic salt'),
+      umSubtipo('essencia-freebase', 'essencia', 'Freebase'),
+      umSubtipo('descartavel-box', 'pod_descartavel', 'Box'),
     ])
 })
 
@@ -86,7 +57,7 @@ describe('InicioView', () => {
   it('avisa enquanto carrega', async () => {
     // A busca nunca resolve: a tela fica no estado de espera.
     vi.mocked(servico.listarSubtipos).mockReturnValue(new Promise(() => {}))
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     const tela = mount(InicioView, { global: { plugins: [router] } })
 
     // O `carregando` é marcado no `onMounted`, mas o redesenho é agendado.
@@ -96,7 +67,7 @@ describe('InicioView', () => {
   })
 
   it('oferece tentar de novo quando a loja não responde', async () => {
-    vi.mocked(servico.listarSubtipos).mockRejectedValue(erroDeRede())
+    vi.mocked(servico.listarSubtipos).mockRejectedValue(falhaSemResposta())
 
     const tela = await montar()
 
@@ -105,7 +76,7 @@ describe('InicioView', () => {
   })
 
   it('refaz a busca ao tentar de novo', async () => {
-    vi.mocked(servico.listarSubtipos).mockRejectedValueOnce(erroDeRede())
+    vi.mocked(servico.listarSubtipos).mockRejectedValueOnce(falhaSemResposta())
     const tela = await montar()
 
     await tela

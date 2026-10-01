@@ -1,129 +1,54 @@
-import { flushPromises, mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
+import { flushPromises, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useSessao } from '@/modules/auth/stores/sessao'
 import PedidoView from './PedidoView.vue'
 import PedidosView from './PedidosView.vue'
 import * as servico from '../services/pedidos'
 import type { Pedido, StatusPedido } from '../types'
+import { paginaCom, umPedido, umPerfil } from '@/testes/fixtures'
+import { falhaComResposta } from '../../../testes/falhas'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('../services/pedidos')
 
+/** Expresso, para que o serviço e o total na tela venham deste arquivo. */
 function pedido(numero: string, status: StatusPedido = 'aguardando_pagamento'): Pedido {
-  return {
+  return umPedido({
     numero,
     status,
-    status_pagamento: status === 'aguardando_pagamento' ? 'pendente' : 'pago',
-    itens: [
-      {
-        sku: 'SKU-1',
-        nome: 'Pod de menta',
-        preco_unitario: '49.90',
-        quantidade: 2,
-        subtotal: '99.80',
-      },
-    ],
-    entrega: {
-      cep: '01001000',
-      logradouro: 'Praça da Sé',
-      numero: '100',
-      complemento: '',
-      bairro: 'Sé',
-      cidade: 'São Paulo',
-      uf: 'SP',
-    },
     servico_frete: 'expresso',
     prazo_frete_em_dias: 2,
-    subtotal: '99.80',
     frete: '35.82',
     total: '135.62',
-    criado_em: '2026-09-19T02:07:30Z',
-    pago_em: null,
-    cliente: 'ana@example.com',
-    proximos_status: status === 'aguardando_pagamento' ? ['pago', 'cancelado'] : [],
-    pode_cancelar: status === 'aguardando_pagamento',
-  }
-}
-
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/pedidos', name: 'pedidos', component: Vazio },
-      { path: '/pedidos/:numero', name: 'pedido', component: Vazio },
-      { path: '/catalogo', name: 'catalogo', component: Vazio },
-    ],
   })
 }
 
-async function montarLista(caminho = '/pedidos') {
-  const router = criarRouter()
-  await router.push(caminho)
-  await router.isReady()
-
-  const tela = mount(PedidosView, { global: { plugins: [router] } })
-  await flushPromises()
-  return { tela, router }
+const ROTAS = {
+  pedidos: '/pedidos',
+  pedido: '/pedidos/:numero',
+  catalogo: '/catalogo',
 }
 
-async function montarDetalhe(numero = 'PED-1') {
-  const router = criarRouter()
-  await router.push(`/pedidos/${numero}`)
-  await router.isReady()
-
-  const tela = mount(PedidoView, { global: { plugins: [router] } })
-  await flushPromises()
-  return { tela, router }
+function montarLista(caminho = '/pedidos') {
+  return montarNaRota(PedidosView, caminho, ROTAS)
 }
 
-function erro404(): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  return new AxiosError('falhou', '404', config, {}, {
-    status: 404,
-    data: { detail: 'No Pedido matches the given query.' },
-    statusText: '',
-    headers: {},
-    config,
-  } as AxiosResponse)
-}
-
-function erro400(campos: Record<string, string[]>): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  return new AxiosError('falhou', '400', config, {}, {
-    status: 400,
-    data: campos,
-    statusText: '',
-    headers: {},
-    config,
-  } as AxiosResponse)
+function montarDetalhe(numero = 'PED-1') {
+  return montarNaRota(PedidoView, `/pedidos/${numero}`, ROTAS)
 }
 
 function botoes(raiz: VueWrapper | Omit<DOMWrapper<Element>, 'exists'>, texto: string) {
   return raiz.findAll('button').filter((b) => b.text() === texto)
 }
 
-// O jsdom não implementa showModal/close do <dialog>.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.open = true
-  }
-  HTMLDialogElement.prototype.close = function close() {
-    this.open = false
-  }
-})
-
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(servico.cancelarPedido).mockReset().mockResolvedValue(pedido('PED-1', 'cancelado'))
   vi.mocked(servico.listarPedidos)
     .mockReset()
-    .mockResolvedValue({ count: 1, next: null, previous: null, results: [pedido('PED-1')] })
+    .mockResolvedValue(paginaCom([pedido('PED-1')]))
   vi.mocked(servico.buscarPedido).mockReset().mockResolvedValue(pedido('PED-1'))
 })
 
@@ -144,12 +69,7 @@ describe('PedidosView', () => {
   })
 
   it('convida ao catálogo quando não há pedido', async () => {
-    vi.mocked(servico.listarPedidos).mockResolvedValue({
-      count: 0,
-      next: null,
-      previous: null,
-      results: [],
-    })
+    vi.mocked(servico.listarPedidos).mockResolvedValue(paginaCom([]))
 
     const { tela } = await montarLista()
 
@@ -169,13 +89,7 @@ describe('PedidosView', () => {
   it('avisa a conta admin de que a lista traz os pedidos de todo mundo', async () => {
     // É a política do backend, não falha da tela.
     const sessao = useSessao()
-    sessao.usuario = {
-      email: 'admin@example.com',
-      nome: '',
-      sobrenome: '',
-      telefone: '',
-      nivel: 'admin',
-    }
+    sessao.usuario = umPerfil({ nivel: 'admin' })
 
     const { tela } = await montarLista()
 
@@ -189,19 +103,16 @@ describe('PedidosView', () => {
   })
 
   it('usa o singular com um item só', async () => {
-    vi.mocked(servico.listarPedidos).mockResolvedValue({
-      count: 1,
-      next: null,
-      previous: null,
-      results: [
+    vi.mocked(servico.listarPedidos).mockResolvedValue(
+      paginaCom([
         {
           ...pedido('PED-2'),
           itens: [
             { sku: 'S', nome: 'Um', preco_unitario: '10.00', quantidade: 1, subtotal: '10.00' },
           ],
         },
-      ],
-    })
+      ]),
+    )
 
     const { tela } = await montarLista()
 
@@ -256,7 +167,9 @@ describe('PedidoView', () => {
   it('trata pedido de outra conta igual a pedido inexistente', async () => {
     // O backend filtra por dono, então os dois casos são o mesmo 404 — e
     // distinguir contaria o que não deve ser contado.
-    vi.mocked(servico.buscarPedido).mockRejectedValue(erro404())
+    vi.mocked(servico.buscarPedido).mockRejectedValue(
+      falhaComResposta(404, { detail: 'No Pedido matches the given query.' }),
+    )
 
     const { tela } = await montarDetalhe('PED-DE-OUTRO')
 
@@ -304,7 +217,7 @@ describe('PedidoView', () => {
 
   it('mostra a recusa do servidor quando o pedido foi pago no meio do caminho', async () => {
     vi.mocked(servico.cancelarPedido).mockRejectedValue(
-      erro400({ status: ['Este pedido não pode mais ser cancelado.'] }),
+      falhaComResposta(400, { status: ['Este pedido não pode mais ser cancelado.'] }),
     )
     const { tela } = await montarDetalhe()
 

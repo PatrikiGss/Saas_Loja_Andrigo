@@ -17,6 +17,8 @@
 import { computed, ref } from 'vue'
 
 import BotaoBase from '@/components/BotaoBase.vue'
+import CampoAreaDeTexto from '@/components/CampoAreaDeTexto.vue'
+import CampoSelecao from '@/components/CampoSelecao.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import type { CamposComErro } from '@/services/erros'
 import type { Especificacao, Subtipo } from '@/modules/loja/types'
@@ -130,40 +132,26 @@ function enviar(): void {
       :desabilitado="enviando"
     />
 
-    <div class="campo">
-      <label class="campo__rotulo" for="subtipo">
-        Subtipo
-        <span class="campo__obrigatorio" aria-hidden="true">*</span>
-      </label>
-      <select
-        id="subtipo"
-        v-model="dados.subtipo"
-        class="campo__select"
-        :disabled="enviando"
-        :aria-invalid="campos?.subtipo ? true : undefined"
-        required
-      >
-        <option value="" disabled>Escolha</option>
-        <option v-for="item in subtipos" :key="item.slug" :value="item.slug">
-          {{ item.categoria_display }} — {{ item.nome }}
-        </option>
-      </select>
-      <p v-if="campos?.subtipo" class="campo__erro">{{ campos.subtipo }}</p>
-      <p v-else class="campo__dica">A categoria vem do subtipo escolhido.</p>
-    </div>
+    <CampoSelecao
+      v-model="dados.subtipo"
+      rotulo="Subtipo"
+      obrigatorio
+      :erro="campos?.subtipo"
+      :desabilitado="enviando"
+      dica="A categoria vem do subtipo escolhido."
+    >
+      <option v-for="item in subtipos" :key="item.slug" :value="item.slug">
+        {{ item.categoria_display }} — {{ item.nome }}
+      </option>
+    </CampoSelecao>
 
-    <div class="campo">
-      <label class="campo__rotulo" for="descricao">Descrição</label>
-      <textarea
-        id="descricao"
-        v-model="dados.descricao"
-        class="campo__area"
-        rows="4"
-        maxlength="2000"
-        :disabled="enviando"
-      />
-      <p v-if="campos?.descricao" class="campo__erro">{{ campos.descricao }}</p>
-    </div>
+    <CampoAreaDeTexto
+      v-model="dados.descricao"
+      rotulo="Descrição"
+      :maxlength="2000"
+      :erro="campos?.descricao"
+      :desabilitado="enviando"
+    />
 
     <fieldset v-if="especificacoesDoSubtipo?.size !== 0" class="especificacoes">
       <legend class="especificacoes__titulo">Especificações</legend>
@@ -236,50 +224,6 @@ function enviar(): void {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--e3);
-}
-
-.campo {
-  display: flex;
-  flex-direction: column;
-  gap: var(--e2);
-}
-
-.campo__rotulo {
-  font-size: var(--texto-sm);
-  font-weight: 600;
-}
-
-.campo__obrigatorio {
-  color: var(--alerta);
-}
-
-.campo__select,
-.campo__area {
-  padding: var(--e2) var(--e3);
-  background: var(--papel-alto);
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio-controle);
-  font-size: var(--texto-base);
-}
-
-.campo__select {
-  min-height: 2.75rem;
-}
-
-.campo__area {
-  resize: vertical;
-  font-family: inherit;
-  line-height: 1.5;
-}
-
-.campo__erro {
-  font-size: var(--texto-xs);
-  color: var(--alerta);
-}
-
-.campo__dica {
-  font-size: var(--texto-xs);
-  color: var(--tinta-media);
 }
 
 .especificacoes {

@@ -1,32 +1,38 @@
 <script setup lang="ts">
-/** Subtotal, frete e total do pedido, como o servidor os gravou. */
+/**
+ * Subtotal, frete e total.
+ *
+ * Recebe os três valores, e não o pedido, porque também desenha o resumo
+ * antes do fechamento — quando ainda não há pedido, e o total é a soma de
+ * apresentação de dois valores que vieram do servidor.
+ */
 import { moeda } from '@/utils/formato'
 import type { Pedido } from '../types'
 
-defineProps<{ pedido: Pedido }>()
+defineProps<{ valores: Pick<Pedido, 'subtotal' | 'frete' | 'total'> }>()
 </script>
 
 <template>
   <dl class="valores">
     <div class="valores__linha">
       <dt>Subtotal</dt>
-      <dd class="numerico">{{ moeda(pedido.subtotal) }}</dd>
+      <dd class="numerico">{{ moeda(valores.subtotal) }}</dd>
     </div>
     <div class="valores__linha">
       <dt>Frete</dt>
-      <dd class="numerico">{{ moeda(pedido.frete) }}</dd>
+      <dd class="numerico">{{ moeda(valores.frete) }}</dd>
     </div>
     <div class="valores__linha valores__linha--total">
       <dt>Total</dt>
-      <dd class="numerico">{{ moeda(pedido.total) }}</dd>
+      <dd class="numerico">{{ moeda(valores.total) }}</dd>
     </div>
   </dl>
 </template>
 
 <style scoped>
+/* Sem margem própria: o reset já zera, e o espaço em volta é de quem usa. */
 .valores {
   max-width: 22rem;
-  margin: 0;
   border-top: 1px solid var(--linha);
 }
 

@@ -2,30 +2,35 @@
 /**
  * Destino e serviço de entrega.
  *
- * O endereço é a cópia guardada no fechamento, em tabela própria: mudar o
- * cadastro depois não mexe no que foi comprado.
+ * Recebe as partes, e não o pedido, porque também desenha o resumo antes do
+ * fechamento, quando o destino ainda é o endereço do cadastro e o serviço é a
+ * opção cotada. Depois do fechamento, o endereço é a cópia guardada no
+ * pedido: mudar o cadastro não mexe no que foi comprado.
  */
 import { cep as formatarCep } from '@/utils/formato'
-import { textoDoServico, type Pedido } from '../types'
+import type { EnderecoDeEntrega } from '../types'
 
-defineProps<{ pedido: Pedido }>()
+defineProps<{
+  endereco: EnderecoDeEntrega
+  /** Nome legível do serviço: 'Econômico', 'Expresso'. */
+  servico: string
+  prazoEmDias: number
+}>()
 </script>
 
 <template>
   <div>
     <p class="endereco">
-      {{ pedido.entrega.logradouro }}, {{ pedido.entrega.numero }}<br />
-      <template v-if="pedido.entrega.complemento">
-        {{ pedido.entrega.complemento }}<br />
-      </template>
-      {{ pedido.entrega.bairro }} — {{ pedido.entrega.cidade }}/{{ pedido.entrega.uf }}<br />
-      <span class="numerico">CEP {{ formatarCep(pedido.entrega.cep) }}</span>
+      {{ endereco.logradouro }}, {{ endereco.numero }}<br />
+      <template v-if="endereco.complemento">{{ endereco.complemento }}<br /></template>
+      {{ endereco.bairro }} — {{ endereco.cidade }}/{{ endereco.uf }}<br />
+      <span class="numerico">CEP {{ formatarCep(endereco.cep) }}</span>
     </p>
 
     <p class="servico">
-      {{ textoDoServico(pedido.servico_frete) }}, em até
-      <span class="numerico">{{ pedido.prazo_frete_em_dias }}</span>
-      {{ pedido.prazo_frete_em_dias === 1 ? 'dia útil' : 'dias úteis' }}
+      {{ servico }}, em até
+      <span class="numerico">{{ prazoEmDias }}</span>
+      {{ prazoEmDias === 1 ? 'dia útil' : 'dias úteis' }}
     </p>
   </div>
 </template>

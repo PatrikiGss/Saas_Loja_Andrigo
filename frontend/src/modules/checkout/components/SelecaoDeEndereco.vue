@@ -14,6 +14,7 @@ import FormularioDeEndereco from '@/modules/enderecos/components/FormularioDeEnd
 import { criarEndereco } from '@/modules/enderecos/services/enderecos'
 import type { DadosDeEndereco, Endereco } from '@/modules/enderecos/types'
 import { cep as formatarCep } from '@/utils/formato'
+import OpcaoEmCartao from './OpcaoEmCartao.vue'
 
 const props = defineProps<{
   enderecos: Endereco[]
@@ -54,20 +55,14 @@ function linhaDoEndereco(endereco: Endereco): string {
     <h2 class="titulo">Para onde entregamos?</h2>
 
     <div v-if="temEnderecos && !cadastrando" class="lista">
-      <label
+      <OpcaoEmCartao
         v-for="endereco in enderecos"
         :key="endereco.id"
-        class="opcao"
-        :class="{ 'opcao--ativa': selecionado === endereco.id }"
+        nome="endereco"
+        :valor="endereco.id"
+        :escolhida="selecionado === endereco.id"
+        @escolher="emit('escolher', endereco.id)"
       >
-        <input
-          type="radio"
-          name="endereco"
-          class="opcao__radio"
-          :value="endereco.id"
-          :checked="selecionado === endereco.id"
-          @change="emit('escolher', endereco.id)"
-        />
         <span class="opcao__texto">
           <span v-if="endereco.apelido" class="opcao__apelido">{{ endereco.apelido }}</span>
           <span class="opcao__linha">{{ linhaDoEndereco(endereco) }}</span>
@@ -78,7 +73,7 @@ function linhaDoEndereco(endereco: Endereco): string {
             CEP {{ formatarCep(endereco.cep) }}
           </span>
         </span>
-      </label>
+      </OpcaoEmCartao>
 
       <div class="acoes">
         <BotaoBase :desabilitado="selecionado === null" @click="emit('continuar')">
@@ -118,27 +113,6 @@ function linhaDoEndereco(endereco: Endereco): string {
   flex-direction: column;
   gap: var(--e3);
   max-width: 34rem;
-}
-
-.opcao {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--e3);
-  padding: var(--e4);
-  background: var(--papel-alto);
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio-superficie);
-  cursor: pointer;
-}
-
-.opcao--ativa {
-  border-color: var(--tinta);
-  box-shadow: inset 0 0 0 1px var(--tinta);
-}
-
-.opcao__radio {
-  margin-top: 0.25rem;
-  accent-color: var(--tinta);
 }
 
 .opcao__texto {

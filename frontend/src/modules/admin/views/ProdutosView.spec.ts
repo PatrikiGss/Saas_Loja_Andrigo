@@ -1,80 +1,37 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ProdutosView from './ProdutosView.vue'
 import * as servico from '../services/produtos'
 import type { ProdutoGestao } from '../types'
+import { falhaComResposta } from '@/testes/falhas'
+import { paginaCom, umProdutoDeGestao } from '@/testes/fixtures'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('../services/produtos')
 
 function produto(id: string, nome: string, estoque: number): ProdutoGestao {
-  return {
-    id,
-    sku: `SKU-${id}`,
-    nome,
-    descricao: '',
-    marca: 'Marca',
-    categoria: 'pod_descartavel',
-    subtipo: 'descartavel-box',
-    preco: '49.90',
-    em_estoque: estoque > 0,
-    puffs: 600,
-    volume_ml: null,
-    nicotina_mg_ml: '50.0',
-    estoque,
-    ativo: true,
-    criado_em: '2026-09-19T00:00:00Z',
-    atualizado_em: '2026-09-19T00:00:00Z',
-  }
+  return umProdutoDeGestao({ id, sku: `SKU-${id}`, nome, estoque, em_estoque: estoque > 0 })
 }
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/admin/produtos', name: 'admin-produtos', component: Vazio },
-      { path: '/admin/produtos/novo', name: 'admin-produto-novo', component: Vazio },
-      { path: '/admin/produtos/:id', name: 'admin-produto', component: Vazio },
-    ],
-  })
+const ROTAS = {
+  'admin-produtos': '/admin/produtos',
+  'admin-produto-novo': '/admin/produtos/novo',
+  'admin-produto': '/admin/produtos/:id',
 }
 
-async function montarComRouter() {
-  const router = criarRouter()
-  await router.push('/admin/produtos')
-  await router.isReady()
-
-  const tela = mount(ProdutosView, { global: { plugins: [router] } })
-  await flushPromises()
-  return { tela, router }
+function montarComRouter() {
+  return montarNaRota(ProdutosView, '/admin/produtos', ROTAS)
 }
 
 async function montar() {
   return (await montarComRouter()).tela
 }
 
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.open = true
-  }
-  HTMLDialogElement.prototype.close = function close() {
-    this.open = false
-  }
-})
-
 beforeEach(() => {
   vi.mocked(servico.listarProdutos)
     .mockReset()
-    .mockResolvedValue({
-      count: 2,
-      next: null,
-      previous: null,
-      results: [produto('a', 'Pod de menta', 0), produto('b', 'Pod de uva', 40)],
-    })
+    .mockResolvedValue(paginaCom([produto('a', 'Pod de menta', 0), produto('b', 'Pod de uva', 40)]))
   vi.mocked(servico.ajustarEstoque).mockReset().mockResolvedValue(5)
   vi.mocked(servico.removerProduto).mockReset().mockResolvedValue()
 })
@@ -141,16 +98,10 @@ describe('ProdutosView', () => {
 
   it('mostra a recusa de excluir produto com histórico', async () => {
     // O banco protege quem já foi comprado ou está em algum carrinho.
-    const { AxiosError, AxiosHeaders } = await import('axios')
-    const config = { headers: new AxiosHeaders() }
     vi.mocked(servico.removerProduto).mockRejectedValue(
-      new AxiosError('falhou', '409', config, {}, {
-        status: 409,
-        data: { detail: 'Produto em uso por outros registros. Desative em vez de excluir.' },
-        statusText: '',
-        headers: {},
-        config,
-      } as never),
+      falhaComResposta(409, {
+        detail: 'Produto em uso por outros registros. Desative em vez de excluir.',
+      }),
     )
 
     const tela = await montar()
@@ -179,12 +130,9 @@ describe('ProdutosView', () => {
   })
 
   it('traz o catálogo inteiro, inclusive o que está fora de venda', async () => {
-    vi.mocked(servico.listarProdutos).mockResolvedValue({
-      count: 1,
-      next: null,
-      previous: null,
-      results: [{ ...produto('c', 'Pod aposentado', 3), ativo: false }],
-    })
+    vi.mocked(servico.listarProdutos).mockResolvedValue(
+      paginaCom([{ ...produto('c', 'Pod aposentado', 3), ativo: false }]),
+    )
 
     const tela = await montar()
 

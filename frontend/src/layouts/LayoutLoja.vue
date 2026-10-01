@@ -6,11 +6,12 @@
  * A navegação é uma lista aqui dentro porque cada etapa do projeto acrescenta
  * uma rota; assim entrar no menu é uma linha, e não uma edição de marcação.
  */
-import { computed, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import { IDADE_MINIMA, NOME_DA_LOJA } from '@/app/config'
 import BotaoBase from '@/components/BotaoBase.vue'
+import { useSair } from '@/modules/auth/sair'
 import { useSessao } from '@/modules/auth/stores/sessao'
 import { useCarrinho } from '@/modules/carrinho/stores/carrinho'
 
@@ -33,20 +34,9 @@ const navegacao = computed<ItemDeNavegacao[]>(() => [
   ...(sessao.ehAdmin ? [{ rota: '/admin/produtos', texto: 'Gestão' }] : []),
 ])
 
-const router = useRouter()
 const sessao = useSessao()
 const carrinho = useCarrinho()
-const saindo = ref(false)
-
-async function sair() {
-  saindo.value = true
-  try {
-    await sessao.sair()
-    await router.push('/')
-  } finally {
-    saindo.value = false
-  }
-}
+const { saindo, sair } = useSair()
 </script>
 
 <template>

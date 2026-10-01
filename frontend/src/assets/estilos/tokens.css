@@ -44,7 +44,6 @@
   --texto-lg: 1.375rem;
   --texto-xl: 1.75rem;
   --texto-2xl: 2.25rem;
-  --texto-3xl: 3rem;
   --texto-display: clamp(2.75rem, 9vw, 5rem);
 
   /* Espaço, em múltiplos de 4px. */

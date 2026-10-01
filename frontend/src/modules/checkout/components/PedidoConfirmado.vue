@@ -15,7 +15,7 @@ import AvisoDePagamento from '@/modules/pedidos/components/AvisoDePagamento.vue'
 import EntregaDoPedido from '@/modules/pedidos/components/EntregaDoPedido.vue'
 import ItensDoPedido from '@/modules/pedidos/components/ItensDoPedido.vue'
 import ValoresDoPedido from '@/modules/pedidos/components/ValoresDoPedido.vue'
-import type { Pedido } from '@/modules/pedidos/types'
+import { textoDoServico, type Pedido } from '@/modules/pedidos/types'
 
 defineProps<{ pedido: Pedido }>()
 </script>
@@ -30,7 +30,7 @@ defineProps<{ pedido: Pedido }>()
 
     <AvisoDePagamento :pedido="pedido" class="confirmado__aviso" />
 
-    <ValoresDoPedido :pedido="pedido" class="confirmado__valores" />
+    <ValoresDoPedido :valores="pedido" class="confirmado__valores" />
 
     <div class="blocos">
       <div>
@@ -40,7 +40,11 @@ defineProps<{ pedido: Pedido }>()
 
       <div>
         <h2 class="bloco__nome">Entrega</h2>
-        <EntregaDoPedido :pedido="pedido" />
+        <EntregaDoPedido
+          :endereco="pedido.entrega"
+          :servico="textoDoServico(pedido.servico_frete)"
+          :prazo-em-dias="pedido.prazo_frete_em_dias"
+        />
       </div>
     </div>
 

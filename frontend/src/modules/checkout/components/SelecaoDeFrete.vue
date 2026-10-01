@@ -13,6 +13,7 @@ import type { ErroDaApi } from '@/services/erros'
 import type { ServicoFrete } from '@/modules/pedidos/types'
 import { moeda } from '@/utils/formato'
 import type { OpcaoFrete } from '../types'
+import OpcaoEmCartao from './OpcaoEmCartao.vue'
 
 defineProps<{
   opcoes: OpcaoFrete[]
@@ -46,26 +47,20 @@ function prazo(dias: number): string {
     />
 
     <div v-else class="lista">
-      <label
+      <OpcaoEmCartao
         v-for="opcao in opcoes"
         :key="opcao.servico"
-        class="opcao"
-        :class="{ 'opcao--ativa': selecionado === opcao.servico }"
+        nome="frete"
+        :valor="opcao.servico"
+        :escolhida="selecionado === opcao.servico"
+        @escolher="emit('escolher', opcao.servico)"
       >
-        <input
-          type="radio"
-          name="frete"
-          class="opcao__radio"
-          :value="opcao.servico"
-          :checked="selecionado === opcao.servico"
-          @change="emit('escolher', opcao.servico)"
-        />
         <span class="opcao__texto">
           <span class="opcao__nome">{{ opcao.nome }}</span>
           <span class="opcao__prazo">{{ prazo(opcao.prazo_em_dias) }}</span>
         </span>
         <span class="opcao__preco numerico">{{ moeda(opcao.preco) }}</span>
-      </label>
+      </OpcaoEmCartao>
 
       <div class="acoes">
         <BotaoBase :desabilitado="selecionado === null" @click="emit('continuar')">
@@ -87,26 +82,6 @@ function prazo(dias: number): string {
   flex-direction: column;
   gap: var(--e3);
   max-width: 34rem;
-}
-
-.opcao {
-  display: flex;
-  align-items: center;
-  gap: var(--e3);
-  padding: var(--e4);
-  background: var(--papel-alto);
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio-superficie);
-  cursor: pointer;
-}
-
-.opcao--ativa {
-  border-color: var(--tinta);
-  box-shadow: inset 0 0 0 1px var(--tinta);
-}
-
-.opcao__radio {
-  accent-color: var(--tinta);
 }
 
 .opcao__texto {

@@ -1,18 +1,11 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter } from 'vue-router'
 
+import { roteadorDeTeste } from '@/testes/roteador'
 import NaoEncontradoView from './NaoEncontradoView.vue'
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
 function montar() {
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [{ path: '/', name: 'inicio', component: Vazio }],
-  })
-  return mount(NaoEncontradoView, { global: { plugins: [router] } })
+  return mount(NaoEncontradoView, { global: { plugins: [roteadorDeTeste({ inicio: '/' })] } })
 }
 
 describe('NaoEncontradoView', () => {

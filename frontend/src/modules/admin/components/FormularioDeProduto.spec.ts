@@ -1,45 +1,22 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
-import type { Subtipo } from '@/modules/loja/types'
+import { umProdutoDeGestao, umSubtipo } from '@/testes/fixtures'
 import FormularioDeProduto from './FormularioDeProduto.vue'
-import type { DadosDeProduto, ProdutoGestao } from '../types'
+import type { DadosDeProduto } from '../types'
 
-const SUBTIPOS: Subtipo[] = [
-  {
-    slug: 'descartavel-box',
-    nome: 'Box',
-    categoria: 'pod_descartavel',
-    categoria_display: 'Pod descartável',
-    especificacoes: ['puffs', 'nicotina_mg_ml'],
-  },
-  {
-    slug: 'essencia-nic-salt',
-    nome: 'Nic salt',
-    categoria: 'essencia',
-    categoria_display: 'Essência',
-    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
-  },
+const SUBTIPOS = [
+  umSubtipo('descartavel-box', 'pod_descartavel', 'Box'),
+  umSubtipo('essencia-nic-salt', 'essencia', 'Nic salt'),
 ]
 
-const PRODUTO: ProdutoGestao = {
-  id: 'uuid-1',
+const PRODUTO = umProdutoDeGestao({
   sku: 'POD-0001',
-  nome: 'Pod de menta',
-  descricao: 'Descrição',
   marca: 'Elfbar',
-  categoria: 'pod_descartavel',
   subtipo: 'descartavel-box',
-  preco: '49.90',
-  em_estoque: true,
   puffs: 600,
-  volume_ml: null,
   nicotina_mg_ml: '50.0',
-  estoque: 10,
-  ativo: true,
-  criado_em: '2026-09-19T00:00:00Z',
-  atualizado_em: '2026-09-19T00:00:00Z',
-}
+})
 
 function montar(props: Record<string, unknown> = {}) {
   return mount(FormularioDeProduto, { props: { subtipos: SUBTIPOS, ...props } })
@@ -152,13 +129,7 @@ describe('FormularioDeProduto', () => {
   })
 
   it('esconde o bloco na categoria que não tem especificação', async () => {
-    const vape: Subtipo = {
-      slug: 'vape-kit',
-      nome: 'Kit',
-      categoria: 'vape',
-      categoria_display: 'Vape',
-      especificacoes: [],
-    }
+    const vape = umSubtipo('vape-kit', 'vape', 'Kit')
     const tela = montar({ subtipos: [...SUBTIPOS, vape] })
 
     await tela.get('select').setValue('vape-kit')

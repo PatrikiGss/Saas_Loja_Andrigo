@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import copy
 
-from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from rest_framework import serializers
 
 from carrinho.models import QUANTIDADE_MAXIMA, Carrinho, ItemCarrinho
 from loja.models import Categoria, Produto
+from painel.erros import recusa_do_modelo
 
 
 class ProdutoNoCarrinhoSerializer(serializers.ModelSerializer):
@@ -76,10 +76,8 @@ class QuantidadeItemSerializer(serializers.ModelSerializer):
         """Delega as regras de estoque e disponibilidade ao modelo."""
         item = copy.copy(self.instance)
         item.quantidade = attrs.get('quantidade', item.quantidade)
-        try:
+        with recusa_do_modelo():
             item.full_clean(validate_unique=False)
-        except ErroDeValidacaoDoModelo as erro:
-            raise serializers.ValidationError(serializers.as_serializer_error(erro)) from erro
         return attrs
 
     def to_representation(self, instance: ItemCarrinho) -> dict:

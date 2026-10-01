@@ -2,23 +2,12 @@ import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import LinhaDoCarrinho from './LinhaDoCarrinho.vue'
-import { QUANTIDADE_MAXIMA, type ItemCarrinho } from '../types'
+import { QUANTIDADE_MAXIMA } from '../types'
+import { umItemDeCarrinho } from '../../../testes/fixtures'
 
-const ITEM: ItemCarrinho = {
-  id: 7,
-  produto: {
-    id: 'produto-7',
-    sku: 'SKU-7',
-    nome: 'Pod de menta',
-    preco: '49.90',
-    categoria: 'pod_descartavel',
-    disponivel: true,
-  },
-  quantidade: 2,
-  subtotal: '99.80',
-}
+const ITEM = umItemDeCarrinho({ id: 7 })
 
-function montar(item: ItemCarrinho = ITEM, salvando = false) {
+function montar(item = ITEM, salvando = false) {
   return mount(LinhaDoCarrinho, { props: { item, salvando } })
 }
 
@@ -39,7 +28,7 @@ describe('LinhaDoCarrinho', () => {
   })
 
   it('apaga a cor do produto indisponível', () => {
-    const linha = montar({ ...ITEM, produto: { ...ITEM.produto, disponivel: false } })
+    const linha = montar(umItemDeCarrinho({ id: 7, produto: { disponivel: false } }))
 
     expect(linha.get('.bloco').classes()).toContain('bloco--esgotado')
   })
@@ -61,14 +50,14 @@ describe('LinhaDoCarrinho', () => {
   })
 
   it('não desce abaixo de um: quem quer zero usa Remover', async () => {
-    const linha = montar({ ...ITEM, quantidade: 1 })
+    const linha = montar(umItemDeCarrinho({ id: 7, quantidade: 1 }))
     const [menos] = botoes(linha)
 
     expect(menos.attributes('disabled')).toBeDefined()
   })
 
   it('não passa do teto que o backend aceita', async () => {
-    const linha = montar({ ...ITEM, quantidade: QUANTIDADE_MAXIMA })
+    const linha = montar(umItemDeCarrinho({ id: 7, quantidade: QUANTIDADE_MAXIMA }))
     const [, mais] = botoes(linha)
 
     expect(mais.attributes('disabled')).toBeDefined()
@@ -113,7 +102,7 @@ describe('LinhaDoCarrinho', () => {
   })
 
   it('avisa quando o produto não passa mais no fechamento', () => {
-    const linha = montar({ ...ITEM, produto: { ...ITEM.produto, disponivel: false } })
+    const linha = montar(umItemDeCarrinho({ id: 7, produto: { disponivel: false } }))
 
     expect(linha.text()).toContain('Indisponível')
   })

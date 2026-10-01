@@ -2,36 +2,9 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import { ErroDaApi } from '@/services/erros'
-import type { ItemCarrinho } from '@/modules/carrinho/types'
-import type { Endereco } from '@/modules/enderecos/types'
+import { umEndereco, umItemDeCarrinho } from '@/testes/fixtures'
 import ResumoDoPedido from './ResumoDoPedido.vue'
 import type { OpcaoFrete } from '../types'
-
-const ITEM: ItemCarrinho = {
-  id: 1,
-  produto: {
-    id: 'p1',
-    sku: 'SKU-1',
-    nome: 'Pod de menta',
-    preco: '49.90',
-    categoria: 'pod_descartavel',
-    disponivel: true,
-  },
-  quantidade: 2,
-  subtotal: '99.80',
-}
-
-const ENDERECO: Endereco = {
-  id: 1,
-  apelido: 'Casa',
-  cep: '01001000',
-  logradouro: 'Praça da Sé',
-  numero: '100',
-  complemento: '',
-  bairro: 'Sé',
-  cidade: 'São Paulo',
-  uf: 'SP',
-}
 
 const FRETE: OpcaoFrete = {
   servico: 'economico',
@@ -43,9 +16,9 @@ const FRETE: OpcaoFrete = {
 function montar(extra: Record<string, unknown> = {}) {
   return mount(ResumoDoPedido, {
     props: {
-      itens: [ITEM],
+      itens: [umItemDeCarrinho()],
       subtotal: '99.80',
-      endereco: ENDERECO,
+      endereco: umEndereco(),
       frete: FRETE,
       fechando: false,
       erro: null,

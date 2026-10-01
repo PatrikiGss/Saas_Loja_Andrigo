@@ -1,46 +1,31 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
+import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import { useSessao } from '@/modules/auth/stores/sessao'
-import type { Perfil } from '@/modules/auth/types'
 import PerfilView from './PerfilView.vue'
 import * as servico from '../services/perfil'
+import { falhaComResposta } from '../../../testes/falhas'
+import { umPerfil } from '../../../testes/fixtures'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('../services/perfil')
 
-const PERFIL: Perfil = {
+const PERFIL = umPerfil({
   email: 'ana@example.com',
   nome: 'Ana',
   sobrenome: 'Lima',
   telefone: '11 99999-0000',
-  nivel: 'usuario',
-}
+})
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/conta', name: 'conta', component: Vazio },
-      { path: '/conta/enderecos', name: 'conta-enderecos', component: Vazio },
-      { path: '/conta/senha', name: 'alterar-senha', component: Vazio },
-    ],
-  })
+const ROTAS = {
+  conta: '/conta',
+  'conta-enderecos': '/conta/enderecos',
+  'alterar-senha': '/conta/senha',
 }
 
 async function montar() {
-  const router = criarRouter()
-  await router.push('/conta')
-  await router.isReady()
-
-  const tela = mount(PerfilView, { global: { plugins: [router] } })
-  await flushPromises()
-  return tela
+  return (await montarNaRota(PerfilView, '/conta', ROTAS)).tela
 }
 
 function campoDe(tela: Awaited<ReturnType<typeof montar>>, rotulo: string) {
@@ -49,18 +34,6 @@ function campoDe(tela: Awaited<ReturnType<typeof montar>>, rotulo: string) {
 
 function valorDe(tela: Awaited<ReturnType<typeof montar>>, rotulo: string): string {
   return (campoDe(tela, rotulo).get('input').element as HTMLInputElement).value
-}
-
-function erro400(campos: Record<string, string[]>): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  const resposta = {
-    status: 400,
-    data: campos,
-    statusText: '',
-    headers: {},
-    config,
-  } as AxiosResponse
-  return new AxiosError('falhou', '400', config, {}, resposta)
 }
 
 beforeEach(() => {
@@ -127,7 +100,7 @@ describe('PerfilView', () => {
 
   it('mostra a recusa do backend no campo certo', async () => {
     vi.mocked(servico.atualizarPerfil).mockRejectedValue(
-      erro400({ telefone: ['Informe um telefone válido, com 8 a 20 caracteres.'] }),
+      falhaComResposta(400, { telefone: ['Informe um telefone válido, com 8 a 20 caracteres.'] }),
     )
     const tela = await montar()
 

@@ -1,47 +1,23 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { flushPromises } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as servico from '@/modules/enderecos/services/enderecos'
-import type { Endereco } from '@/modules/enderecos/types'
+import { umEndereco } from '@/testes/fixtures'
 import EnderecosView from './EnderecosView.vue'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('@/modules/enderecos/services/enderecos')
 
-const CASA: Endereco = {
-  id: 1,
-  apelido: 'Casa',
-  cep: '01001000',
-  logradouro: 'Praça da Sé',
-  numero: '100',
-  complemento: '',
-  bairro: 'Sé',
-  cidade: 'São Paulo',
-  uf: 'SP',
-}
+const CASA = umEndereco()
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/conta', name: 'conta', component: Vazio },
-      { path: '/conta/enderecos', name: 'conta-enderecos', component: Vazio },
-      { path: '/conta/senha', name: 'alterar-senha', component: Vazio },
-    ],
-  })
+const ROTAS = {
+  conta: '/conta',
+  'conta-enderecos': '/conta/enderecos',
+  'alterar-senha': '/conta/senha',
 }
 
 async function montar() {
-  const router = criarRouter()
-  await router.push('/conta/enderecos')
-  await router.isReady()
-
-  const tela = mount(EnderecosView, { global: { plugins: [router] } })
-  await flushPromises()
-  return tela
+  return (await montarNaRota(EnderecosView, '/conta/enderecos', ROTAS)).tela
 }
 
 async function clicar(tela: Awaited<ReturnType<typeof montar>>, texto: string) {
@@ -49,15 +25,6 @@ async function clicar(tela: Awaited<ReturnType<typeof montar>>, texto: string) {
   await botao!.trigger('click')
   await flushPromises()
 }
-
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.open = true
-  }
-  HTMLDialogElement.prototype.close = function close() {
-    this.open = false
-  }
-})
 
 beforeEach(() => {
   vi.mocked(servico.listarEnderecos).mockReset().mockResolvedValue([CASA])

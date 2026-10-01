@@ -26,6 +26,7 @@ import EntregaDoPedido from '../components/EntregaDoPedido.vue'
 import ItensDoPedido from '../components/ItensDoPedido.vue'
 import ValoresDoPedido from '../components/ValoresDoPedido.vue'
 import { buscarPedido, cancelarPedido } from '../services/pedidos'
+import { textoDoServico } from '../types'
 
 const rota = useRoute()
 
@@ -96,7 +97,11 @@ const {
 
       <section class="coluna">
         <h2 class="coluna__nome">Entrega</h2>
-        <EntregaDoPedido :pedido="pedido" />
+        <EntregaDoPedido
+          :endereco="pedido.entrega"
+          :servico="textoDoServico(pedido.servico_frete)"
+          :prazo-em-dias="pedido.prazo_frete_em_dias"
+        />
       </section>
     </div>
 
@@ -107,7 +112,7 @@ const {
 
     <section class="secao">
       <h2 class="apenas-leitor">Valores</h2>
-      <ValoresDoPedido :pedido="pedido" />
+      <ValoresDoPedido :valores="pedido" />
     </section>
 
     <DialogoDeConfirmacao

@@ -1,44 +1,21 @@
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as servico from '../services/carrinho'
-import type { Carrinho, ItemCarrinho } from '../types'
+import type { ItemCarrinho } from '../types'
 import { useCarrinho } from './carrinho'
+import { falhaComResposta } from '../../../testes/falhas'
+import { umCarrinho, umItemDeCarrinho } from '../../../testes/fixtures'
 
 vi.mock('../services/carrinho')
 
+/** A R$ 10 cada, para os totais conferidos abaixo serem contas de cabeça. */
 function item(id: number, quantidade: number, disponivel = true): ItemCarrinho {
-  return {
+  return umItemDeCarrinho({
     id,
-    produto: {
-      id: `produto-${id}`,
-      sku: `SKU-${id}`,
-      nome: `Produto ${id}`,
-      preco: '10.00',
-      categoria: 'pod_descartavel',
-      disponivel,
-    },
     quantidade,
-    subtotal: (10 * quantidade).toFixed(2),
-  }
-}
-
-function carrinhoCom(itens: ItemCarrinho[]): Carrinho {
-  const total = itens.reduce((soma, atual) => soma + Number(atual.subtotal), 0)
-  return { itens, total: total.toFixed(2) }
-}
-
-function erro400(campos: Record<string, string[]>): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  const resposta = {
-    status: 400,
-    data: campos,
-    statusText: '',
-    headers: {},
-    config,
-  } as AxiosResponse
-  return new AxiosError('falhou', '400', config, {}, resposta)
+    produto: { id: `produto-${id}`, sku: `SKU-${id}`, preco: '10.00', disponivel },
+  })
 }
 
 beforeEach(() => {
@@ -52,7 +29,7 @@ beforeEach(() => {
 
 describe('carrinho', () => {
   it('carrega itens e total do servidor', async () => {
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([item(1, 2), item(2, 1)]))
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([item(1, 2), item(2, 1)]))
     const carrinho = useCarrinho()
 
     await carrinho.carregar()
@@ -63,7 +40,7 @@ describe('carrinho', () => {
   })
 
   it('só é vazio depois de ter carregado', async () => {
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([]))
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([]))
     const carrinho = useCarrinho()
 
     // Antes de carregar, 'vazio' significaria 'ainda não sei'.
@@ -78,7 +55,7 @@ describe('carrinho', () => {
     // O PATCH devolve o item, não o total; somar subtotais aqui seria o
     // frontend calculando dinheiro.
     vi.mocked(servico.alterarQuantidade).mockResolvedValue(item(1, 5))
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([item(1, 5)]))
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([item(1, 5)]))
     const carrinho = useCarrinho()
 
     await carrinho.alterarQuantidade(1, 5)
@@ -89,9 +66,9 @@ describe('carrinho', () => {
 
   it('devolve a recusa do backend sem lançar', async () => {
     vi.mocked(servico.alterarQuantidade).mockRejectedValue(
-      erro400({ quantidade: ['Quantidade acima do estoque disponível.'] }),
+      falhaComResposta(400, { quantidade: ['Quantidade acima do estoque disponível.'] }),
     )
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([item(1, 2)]))
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([item(1, 2)]))
     const carrinho = useCarrinho()
 
     const falha = await carrinho.alterarQuantidade(1, 99)
@@ -103,8 +80,10 @@ describe('carrinho', () => {
 
   it('relê o carrinho mesmo quando a alteração é recusada', async () => {
     // O estoque pode ter mudado; o estado local não pode ficar defasado.
-    vi.mocked(servico.removerItem).mockRejectedValue(erro400({ detail: ['Não deu.'] }))
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([item(1, 1)]))
+    vi.mocked(servico.removerItem).mockRejectedValue(
+      falhaComResposta(400, { detail: ['Não deu.'] }),
+    )
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([item(1, 1)]))
     const carrinho = useCarrinho()
 
     await carrinho.remover(1)
@@ -115,7 +94,7 @@ describe('carrinho', () => {
 
   it('esvazia pelo endereço da coleção, e não item a item', async () => {
     vi.mocked(servico.esvaziar).mockResolvedValue()
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([]))
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([]))
     const carrinho = useCarrinho()
 
     await carrinho.limpar()
@@ -126,9 +105,7 @@ describe('carrinho', () => {
   })
 
   it('aponta item que o fechamento recusaria', async () => {
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(
-      carrinhoCom([item(1, 1), item(2, 1, false)]),
-    )
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([item(1, 1), item(2, 1, false)]))
     const carrinho = useCarrinho()
 
     await carrinho.carregar()
@@ -137,7 +114,7 @@ describe('carrinho', () => {
   })
 
   it('esquece tudo quando a sessão acaba', async () => {
-    vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoCom([item(1, 3)]))
+    vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([item(1, 3)]))
     const carrinho = useCarrinho()
     await carrinho.carregar()
 
@@ -149,7 +126,9 @@ describe('carrinho', () => {
   })
 
   it('guarda o erro quando nem a leitura inicial funciona', async () => {
-    vi.mocked(servico.buscarCarrinho).mockRejectedValue(erro400({ detail: ['Falhou.'] }))
+    vi.mocked(servico.buscarCarrinho).mockRejectedValue(
+      falhaComResposta(400, { detail: ['Falhou.'] }),
+    )
     const carrinho = useCarrinho()
 
     await carrinho.carregar()

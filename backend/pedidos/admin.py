@@ -6,30 +6,23 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
+from painel.admin_consulta import SomenteConsulta
 from pedidos.models import EnderecoDeEntrega, ItemPedido, Pedido
 
 
-class ItemPedidoInline(admin.TabularInline):
+class ItemPedidoInline(SomenteConsulta, admin.TabularInline):
     model = ItemPedido
     extra = 0
-    can_delete = False
     readonly_fields = ('produto', 'sku', 'nome', 'preco_unitario', 'quantidade', 'subtotal')
 
-    def has_add_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False
 
-
-class EnderecoDeEntregaInline(admin.StackedInline):
+class EnderecoDeEntregaInline(SomenteConsulta, admin.StackedInline):
     model = EnderecoDeEntrega
-    can_delete = False
     readonly_fields = ('cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf')
-
-    def has_add_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False
 
 
 @admin.register(Pedido)
-class PedidoAdmin(admin.ModelAdmin):
+class PedidoAdmin(SomenteConsulta, admin.ModelAdmin):
     """Somente consulta.
 
     Mudar status é pelo endpoint administrativo, que valida a transição. Ter
@@ -59,12 +52,3 @@ class PedidoAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Pedido]:
         return super().get_queryset(request).select_related('usuario', 'entrega')
-
-    def has_add_permission(self, request: HttpRequest) -> bool:
-        return False
-
-    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False
-
-    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False

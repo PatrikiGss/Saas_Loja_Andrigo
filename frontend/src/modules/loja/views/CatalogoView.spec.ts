@@ -1,66 +1,28 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders } from 'axios'
+import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import CatalogoView from './CatalogoView.vue'
 import * as servico from '../services/catalogo'
-import type { Produto, Subtipo } from '../types'
+import type { Produto } from '../types'
+import { falhaSemResposta } from '../../../testes/falhas'
+import { paginaCom, umaEssencia, umSubtipo } from '../../../testes/fixtures'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('../services/catalogo')
 
-function produto(id: string, nome: string, emEstoque = true): Produto {
-  return {
-    id,
-    sku: `SKU-${id}`,
-    nome,
-    descricao: '',
-    marca: 'Elfbar',
-    categoria: 'essencia',
-    subtipo: 'essencia-nic-salt',
-    preco: '49.90',
-    em_estoque: emEstoque,
-    puffs: null,
-    volume_ml: '30.00',
-    nicotina_mg_ml: '35.0',
-  }
+function produto(id: string, nome: string): Produto {
+  return umaEssencia({ id, sku: `SKU-${id}`, nome })
 }
 
-const SUBTIPOS: Subtipo[] = [
-  {
-    slug: 'essencia-nic-salt',
-    nome: 'Nic salt',
-    categoria: 'essencia',
-    categoria_display: 'Essência',
-    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
-  },
-]
+const SUBTIPOS = [umSubtipo('essencia-nic-salt', 'essencia', 'Nic salt')]
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/catalogo', name: 'catalogo', component: Vazio },
-      { path: '/produto/:id', name: 'produto', component: Vazio },
-    ],
-  })
+const ROTAS = {
+  catalogo: '/catalogo',
+  produto: '/produto/:id',
 }
 
-async function montar(query = '') {
-  const router = criarRouter()
-  await router.push(`/catalogo${query}`)
-  await router.isReady()
-
-  const tela = mount(CatalogoView, { global: { plugins: [router] } })
-  await flushPromises()
-  return { tela, router }
-}
-
-function paginaCom(itens: Produto[], count = itens.length) {
-  return { count, next: null, previous: null, results: itens }
+function montar(query = '') {
+  return montarNaRota(CatalogoView, `/catalogo${query}`, ROTAS)
 }
 
 beforeEach(() => {
@@ -146,9 +108,7 @@ describe('CatalogoView', () => {
   })
 
   it('mostra erro com opção de repetir', async () => {
-    vi.mocked(servico.listarProdutos).mockRejectedValue(
-      new AxiosError('falhou', undefined, { headers: new AxiosHeaders() }, {}),
-    )
+    vi.mocked(servico.listarProdutos).mockRejectedValue(falhaSemResposta())
 
     const { tela } = await montar()
 

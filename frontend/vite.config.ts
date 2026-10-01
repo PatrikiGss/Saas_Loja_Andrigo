@@ -23,16 +23,19 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['src/**/*.spec.ts'],
+    // O jsdom não tem `<dialog>` modal; o preparo dá o mínimo que os testes usam.
+    setupFiles: ['src/testes/configuracao.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary'],
       include: ['src/**/*.{ts,vue}'],
-      // Fora da conta só o que não tem comportamento: declaração de tipo,
-      // gerada ou não, e a partida da aplicação.
+      // Fora da conta só o que não é comportamento da aplicação: declaração
+      // de tipo, gerada ou não, a partida, e o apoio dos próprios testes.
       exclude: [
         'src/**/*.spec.ts',
         'src/**/types.ts',
         'src/types/esquema.ts',
+        'src/testes/**',
         'src/main.ts',
         'src/env.d.ts',
       ],

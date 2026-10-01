@@ -1,24 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as servico from '@/modules/enderecos/services/enderecos'
-import type { Endereco } from '@/modules/enderecos/types'
 import SelecaoDeEndereco from './SelecaoDeEndereco.vue'
+import { falhaComResposta } from '../../../testes/falhas'
+import { umEndereco } from '../../../testes/fixtures'
 
 vi.mock('@/modules/enderecos/services/enderecos')
 
-const CASA: Endereco = {
-  id: 1,
-  apelido: 'Casa',
-  cep: '01001000',
-  logradouro: 'Praça da Sé',
-  numero: '100',
-  complemento: 'fundos',
-  bairro: 'Sé',
-  cidade: 'São Paulo',
-  uf: 'SP',
-}
+const CASA = umEndereco({ complemento: 'fundos' })
 
 function montar(props: Record<string, unknown> = {}) {
   return mount(SelecaoDeEndereco, {
@@ -109,15 +99,8 @@ describe('SelecaoDeEndereco', () => {
   })
 
   it('mostra a recusa do backend sem perder o que foi digitado', async () => {
-    const config = { headers: new AxiosHeaders() }
     vi.mocked(servico.criarEndereco).mockRejectedValue(
-      new AxiosError('falhou', '400', config, {}, {
-        status: 400,
-        data: { cep: ['Informe o CEP com 8 dígitos, apenas números.'] },
-        statusText: '',
-        headers: {},
-        config,
-      } as AxiosResponse),
+      falhaComResposta(400, { cep: ['Informe o CEP com 8 dígitos, apenas números.'] }),
     )
     const tela = montar({ enderecos: [], selecionado: null })
 

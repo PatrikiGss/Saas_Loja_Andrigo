@@ -6,7 +6,7 @@
  * rota do cliente, só que o backend para de filtrar por `ativo` quando quem
  * pergunta é admin.
  */
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import BotaoBase from '@/components/BotaoBase.vue'
@@ -17,14 +17,13 @@ import MensagemDeErro from '@/components/MensagemDeErro.vue'
 import PaginacaoLista from '@/components/PaginacaoLista.vue'
 import TabelaDados, { type Coluna } from '@/components/TabelaDados.vue'
 import { useFormulario } from '@/composables/useFormulario'
-import { useRequisicao } from '@/composables/useRequisicao'
+import { useListaPaginada } from '@/composables/useListaPaginada'
 import { corDaCategoria } from '@/modules/loja/categorias'
+import { POR_PAGINA } from '@/services/paginacao'
 import { moeda } from '@/utils/formato'
 import AjusteDeEstoque from '../components/AjusteDeEstoque.vue'
 import { listarProdutos, removerProduto } from '../services/produtos'
 import type { ProdutoGestao } from '../types'
-
-const POR_PAGINA = 20
 
 const COLUNAS: Coluna[] = [
   { chave: 'produto', titulo: 'Produto' },
@@ -37,21 +36,21 @@ const COLUNAS: Coluna[] = [
 const rota = useRoute()
 const router = useRouter()
 
-const pagina = computed(() => Number(rota.query.pagina) || 1)
 const busca = ref(String(rota.query.busca ?? ''))
 
-const { dados, carregando, erro, respondeu, executar } = useRequisicao(() =>
-  listarProdutos({ pagina: pagina.value, busca: String(rota.query.busca ?? '') }),
+const {
+  dados,
+  pagina,
+  itens: produtos,
+  total,
+  vazio,
+  carregando,
+  erro,
+  executar,
+} = useListaPaginada(
+  (pagina) => listarProdutos({ pagina, busca: String(rota.query.busca ?? '') }),
+  () => rota.query.busca,
 )
-
-watch(
-  () => [pagina.value, rota.query.busca],
-  () => void executar(),
-)
-
-const produtos = computed(() => dados.value?.results ?? [])
-const total = computed(() => dados.value?.count ?? 0)
-const vazio = computed(() => respondeu.value && !erro.value && produtos.value.length === 0)
 
 function navegar(query: Record<string, string | undefined>): void {
   void router.push({ name: 'admin-produtos', query })
@@ -73,7 +72,7 @@ const {
  * Estoques que mudaram desde a última leitura da lista.
  *
  * O ajuste devolve o estoque já calculado pelo banco, mas escrever esse
- * número direto no objeto do produto não aparece na tela: `useRequisicao`
+ * número direto no objeto do produto não aparece na tela: a requisição
  * guarda os dados em `shallowRef`, que acompanha a troca da lista inteira e
  * não a alteração de um campo lá dentro. O mapa é um valor próprio, e esse
  * o Vue observa.

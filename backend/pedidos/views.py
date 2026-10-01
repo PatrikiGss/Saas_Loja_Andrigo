@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db import transaction
 from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions, serializers, status, viewsets
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.request import Request
@@ -15,6 +14,7 @@ from rest_framework.throttling import ScopedRateThrottle
 
 from carrinho.models import Carrinho
 from painel.auditoria import registrar
+from painel.erros import recusa_do_modelo
 from painel.permissions import EhAdmin, e_admin
 from pedidos import cep as consulta_de_cep
 from pedidos.emails import enviar_confirmacao_de_pedido, enviar_mudanca_de_status
@@ -51,14 +51,12 @@ class CheckoutView(generics.GenericAPIView):
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
 
-        try:
+        with recusa_do_modelo():
             pedido = Pedido.objects.fechar_carrinho(
                 usuario=request.user,
                 endereco=entrada.validated_data['endereco'],
                 servico=entrada.validated_data['servico'],
             )
-        except ErroDeValidacaoDoModelo as erro:
-            raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         # O e-mail sai só depois do commit: SMTP fora do ar não desfaz a compra.
         transaction.on_commit(lambda: enviar_confirmacao_de_pedido(pedido))
@@ -100,10 +98,8 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
         entrada = AlteracaoStatusSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
 
-        try:
+        with recusa_do_modelo():
             pedido.alterar_status(entrada.validated_data['status'])
-        except ErroDeValidacaoDoModelo as erro:
-            raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         registrar(
             request.user,
@@ -128,10 +124,8 @@ class PedidoViewSet(viewsets.ReadOnlyModelViewSet):
             self.get_queryset().filter(usuario=request.user), numero=numero
         )
 
-        try:
+        with recusa_do_modelo():
             pedido.cancelar_pelo_cliente()
-        except ErroDeValidacaoDoModelo as erro:
-            raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         transaction.on_commit(lambda: enviar_mudanca_de_status(pedido))
 
@@ -157,10 +151,8 @@ class CotacaoFreteView(generics.GenericAPIView):
         if not quantidade:
             raise ValidationError({'carrinho': 'Carrinho vazio.'})
 
-        try:
+        with recusa_do_modelo():
             opcoes = cotar(entrada.validated_data['endereco'].uf, quantidade)
-        except ErroDeValidacaoDoModelo as erro:
-            raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         return Response(OpcaoFreteSerializer(opcoes, many=True).data)
 

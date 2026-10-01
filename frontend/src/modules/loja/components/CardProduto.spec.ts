@@ -1,40 +1,20 @@
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter } from 'vue-router'
 
 import BlocoDoProduto from './BlocoDoProduto.vue'
 import CardProduto from './CardProduto.vue'
 import EspecificacoesProduto from './EspecificacoesProduto.vue'
 import SeloCategoria from './SeloCategoria.vue'
-import type { Produto } from '../types'
+import { umProduto } from '../../../testes/fixtures'
+import { roteadorDeTeste } from '../../../testes/roteador'
 
-const PRODUTO: Produto = {
-  id: 'uuid-1',
-  sku: 'POD-0001',
-  nome: 'Pod de menta',
-  descricao: 'Descrição',
-  marca: 'Elfbar',
-  categoria: 'pod_descartavel',
-  subtipo: 'descartavel-box',
-  preco: '49.90',
-  em_estoque: true,
-  puffs: 600,
-  volume_ml: null,
-  nicotina_mg_ml: '50.0',
-}
+const PRODUTO = umProduto({ nome: 'Pod de menta', marca: 'Elfbar', preco: '49.90' })
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function router() {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [{ path: '/produto/:id', name: 'produto', component: Vazio }],
+function montarCard(produto = PRODUTO) {
+  return mount(CardProduto, {
+    props: { produto },
+    global: { plugins: [roteadorDeTeste({ produto: '/produto/:id' })] },
   })
-}
-
-function montarCard(produto: Produto = PRODUTO) {
-  return mount(CardProduto, { props: { produto }, global: { plugins: [router()] } })
 }
 
 describe('CardProduto', () => {

@@ -39,11 +39,24 @@ def definir_nivel(usuario: AbstractBaseUser, nivel: str) -> None:
 def invalidar_tokens(usuario: AbstractBaseUser) -> None:
     """Derruba os refresh tokens em circulação da conta.
 
-    Usado quando a senha muda. O access token que já estava emitido continua
-    valendo até expirar, e é por isso que ele dura 15 minutos.
+    O access token já emitido cai junto, mas por outro caminho: com
+    `CHECK_REVOKE_TOKEN` ligado, ele carrega a marca da senha e deixa de valer
+    quando ela muda.
     """
     for token in OutstandingToken.objects.filter(user=usuario):
         BlacklistedToken.objects.get_or_create(token=token)
+
+
+def trocar_senha(usuario: AbstractBaseUser, nova_senha: str) -> None:
+    """Grava a senha nova e derruba as sessões em circulação.
+
+    É o único caminho de troca de senha — pela própria conta ou pelo link de
+    recuperação —, para nenhum deles esquecer a segunda metade: quem tiver
+    roubado um refresh token deixa de conseguir renovar o acesso.
+    """
+    usuario.set_password(nova_senha)
+    usuario.save(update_fields=('password',))
+    invalidar_tokens(usuario)
 
 
 validar_telefone = RegexValidator(

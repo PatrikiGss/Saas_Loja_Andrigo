@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { http } from './http'
-import { coletarTudo } from './paginacao'
+import { coletarTudo, paginaDaRota } from './paginacao'
 
 vi.mock('./http', () => ({ http: { get: vi.fn() } }))
 
@@ -47,5 +47,18 @@ describe('coletarTudo', () => {
 
     expect(get.mock.calls.length).toBeLessThanOrEqual(25)
     expect(itens.length).toBeLessThanOrEqual(25)
+  })
+})
+
+describe('paginaDaRota', () => {
+  it('lê a página pedida na rota', () => {
+    expect(paginaDaRota('3')).toBe(3)
+  })
+
+  it('cai na primeira com página ausente, inválida, quebrada ou negativa', () => {
+    // Um `?pagina=2.5` ou `-1` chegaria ao backend como página que não existe.
+    for (const valor of [undefined, '', 'abc', '0', '-1', '2.5']) {
+      expect(paginaDaRota(valor), String(valor)).toBe(1)
+    }
   })
 })

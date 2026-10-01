@@ -1,22 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { sairDoSite } from '../sair'
 import { useIdade } from '../stores/idade'
 import PerguntaDeIdade from './PerguntaDeIdade.vue'
 
 vi.mock('../sair')
-
-// O jsdom não implementa showModal/close do <dialog>.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.open = true
-  }
-  HTMLDialogElement.prototype.close = function close() {
-    this.open = false
-  }
-})
 
 beforeEach(() => {
   sessionStorage.clear()

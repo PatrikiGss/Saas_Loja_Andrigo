@@ -1,25 +1,20 @@
 import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import type { Router } from 'vue-router'
 
 import { instalarVerificacaoDeIdade } from './instalar'
 import { sairDoSite } from './sair'
 import { useIdade } from './stores/idade'
+import { roteadorDeTeste } from '../../testes/roteador'
 
 vi.mock('./sair')
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
 async function preparar(): Promise<Router> {
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/', component: Vazio },
-      { path: '/catalogo', component: Vazio },
-      { path: '/carrinho', component: Vazio, meta: { confirmaIdade: true } },
-    ],
+  const router = roteadorDeTeste({
+    inicio: '/',
+    catalogo: '/catalogo',
+    carrinho: { caminho: '/carrinho', meta: { confirmaIdade: true } },
   })
   instalarVerificacaoDeIdade(router)
   await router.push('/')

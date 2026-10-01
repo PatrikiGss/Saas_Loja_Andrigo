@@ -1,43 +1,24 @@
 import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import { ErroDaApi } from '@/services/erros'
 import * as camadaHttp from '@/services/http'
 import { esquecerSessao } from '@/services/http'
 import { instalarSessao } from './instalar'
 import * as servico from './services/auth'
-import type { Perfil } from './types'
+import { umPerfil } from '../../testes/fixtures'
+import { roteadorDeTeste } from '../../testes/roteador'
 
 vi.mock('./services/auth')
 
-const PERFIL: Perfil = {
-  email: 'cliente@example.com',
-  nome: 'Ana',
-  sobrenome: '',
-  telefone: '',
-  nivel: 'usuario',
-}
+const PERFIL = umPerfil()
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-/** Router com as mesmas metas das rotas reais, sem carregar as views. */
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/', name: 'inicio', component: Vazio },
-      { path: '/entrar', name: 'entrar', component: Vazio, meta: { apenasVisitante: true } },
-      {
-        path: '/conta/senha',
-        name: 'alterar-senha',
-        component: Vazio,
-        meta: { exigeAutenticacao: true },
-      },
-    ],
-  })
+/** As mesmas metas das rotas reais, sem carregar as views. */
+const ROTAS = {
+  inicio: '/',
+  entrar: { caminho: '/entrar', meta: { apenasVisitante: true } },
+  'alterar-senha': { caminho: '/conta/senha', meta: { exigeAutenticacao: true } },
 }
 
 function comSessaoValida(): void {
@@ -84,7 +65,7 @@ beforeEach(() => {
 describe('guard de rota', () => {
   it('manda para o login quem tenta uma rota protegida sem sessão', async () => {
     semSessao()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
 
     await router.push('/conta/senha')
@@ -96,7 +77,7 @@ describe('guard de rota', () => {
 
   it('deixa passar quem tem sessão restaurada pelo cookie', async () => {
     comSessaoValida()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
 
     await router.push('/conta/senha')
@@ -113,7 +94,7 @@ describe('guard de rota', () => {
     )
     vi.mocked(servico.buscarPerfil).mockResolvedValue(PERFIL)
 
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
 
     const navegacao = router.push('/conta/senha')
@@ -125,7 +106,7 @@ describe('guard de rota', () => {
 
   it('tira de tela de visitante quem já está autenticado', async () => {
     comSessaoValida()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
 
     await router.push('/entrar')
@@ -135,7 +116,7 @@ describe('guard de rota', () => {
 
   it('deixa a vitrine aberta para quem não entrou', async () => {
     semSessao()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
 
     await router.push('/')
@@ -147,7 +128,7 @@ describe('guard de rota', () => {
 describe('adaptador entregue à camada HTTP', () => {
   it('expõe o token guardado na sessão e sabe renovar', async () => {
     comSessaoValida()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
     await router.push('/')
 
@@ -161,7 +142,7 @@ describe('adaptador entregue à camada HTTP', () => {
 
   it('devolve nada quando não há sessão para renovar', async () => {
     semSessao()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
     await router.push('/')
 
@@ -173,7 +154,7 @@ describe('adaptador entregue à camada HTTP', () => {
 describe('sessão que cai no meio do uso', () => {
   it('tira a pessoa da rota protegida, guardando onde ela estava', async () => {
     comSessaoValida()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
     await router.push('/conta/senha')
 
@@ -192,7 +173,7 @@ describe('sessão que cai no meio do uso', () => {
   it('não muda de página quando a sessão cai na vitrine', async () => {
     // Na loja aberta, a sessão cair não é motivo para tirar ninguém do lugar.
     comSessaoValida()
-    const router = criarRouter()
+    const router = roteadorDeTeste(ROTAS)
     instalarSessao(router)
     await router.push('/')
 

@@ -11,10 +11,16 @@ export type ServicoFrete = Esquema<'ServicoFreteEnum'>
 /** Linha da compra, com nome e preço congelados no fechamento. */
 export type ItemPedido = Esquema<'ItemPedido'>
 
-/** Cópia do endereço como ele estava no dia da compra. */
+/**
+ * Endereço de entrega. No pedido é a cópia congelada no fechamento; o
+ * endereço do cadastro tem a mesma forma, e serve para o resumo antes dele.
+ */
 export type EnderecoDeEntrega = Esquema<'EnderecoDeEntrega'>
 
-/** Resposta de `POST /api/checkout/` e de `/api/pedidos/`. Nada é gravável. */
+/**
+ * Resposta de `POST /api/checkout/` e de `/api/pedidos/`. Nada é gravável, e
+ * a `entrega` é a cópia do endereço como ele estava no dia da compra.
+ */
 export type Pedido = Esquema<'Pedido'>
 
 /**
@@ -46,7 +52,7 @@ export const CAMPOS_DO_PEDIDO = [
  * backend publicado antes deste frontend. Aí a tela mostra o identificador em
  * vez de quebrar.
  */
-export const TEXTO_DO_STATUS: Record<StatusPedido, string> = {
+const TEXTO_DO_STATUS: Record<StatusPedido, string> = {
   aguardando_pagamento: 'Aguardando pagamento',
   pago: 'Pago',
   em_preparacao: 'Em preparação',
@@ -61,7 +67,7 @@ export const TEXTO_DO_PAGAMENTO: Record<StatusPagamento, string> = {
   estornado: 'Estornado',
 }
 
-export const TEXTO_DO_SERVICO: Record<ServicoFrete, string> = {
+const TEXTO_DO_SERVICO: Record<ServicoFrete, string> = {
   economico: 'Econômico',
   expresso: 'Expresso',
 }

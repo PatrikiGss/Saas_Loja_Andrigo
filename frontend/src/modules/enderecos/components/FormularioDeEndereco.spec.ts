@@ -1,24 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as servico from '../services/enderecos'
 import FormularioDeEndereco from './FormularioDeEndereco.vue'
-import type { Endereco } from '../types'
+import { falhaComResposta, falhaSemResposta } from '../../../testes/falhas'
+import { umEndereco } from '../../../testes/fixtures'
 
 vi.mock('../services/enderecos')
 
-const ENDERECO: Endereco = {
-  id: 1,
-  apelido: 'Casa',
-  cep: '01001000',
-  logradouro: 'Praça da Sé',
-  numero: '100',
-  complemento: 'lado ímpar',
-  bairro: 'Sé',
-  cidade: 'São Paulo',
-  uf: 'SP',
-}
+const ENDERECO = umEndereco({ complemento: 'lado ímpar' })
 
 function montar(props: Record<string, unknown> = {}) {
   return mount(FormularioDeEndereco, { props })
@@ -168,9 +158,7 @@ describe('FormularioDeEndereco', () => {
   })
 
   it('sem conexão na busca de CEP, diz isso no campo', async () => {
-    vi.mocked(servico.consultarCep).mockRejectedValue(
-      new AxiosError('falhou', undefined, { headers: new AxiosHeaders() }, {}),
-    )
+    vi.mocked(servico.consultarCep).mockRejectedValue(falhaSemResposta())
     const formulario = montar()
 
     await preencher(formulario, 'CEP', '01001000')
@@ -184,15 +172,8 @@ describe('FormularioDeEndereco', () => {
   })
 
   it('deixa preencher à mão quando a busca de CEP falha', async () => {
-    const config = { headers: new AxiosHeaders() }
     vi.mocked(servico.consultarCep).mockRejectedValue(
-      new AxiosError('falhou', '400', config, {}, {
-        status: 400,
-        data: { cep: ['CEP não encontrado.'] },
-        statusText: '',
-        headers: {},
-        config,
-      } as AxiosResponse),
+      falhaComResposta(400, { cep: ['CEP não encontrado.'] }),
     )
     const formulario = montar()
 

@@ -1,78 +1,39 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
+import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import { useSessao } from '@/modules/auth/stores/sessao'
 import * as servico from '@/modules/carrinho/services/carrinho'
 import AdicionarAoCarrinho from './AdicionarAoCarrinho.vue'
-import type { Produto } from '../types'
+import { falhaComResposta } from '../../../testes/falhas'
+import { umCarrinho, umItemDeCarrinho, umProduto } from '../../../testes/fixtures'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('@/modules/carrinho/services/carrinho')
 
-const PRODUTO: Produto = {
-  id: '11111111-1111-1111-1111-111111111111',
-  sku: 'POD-0001',
-  nome: 'Pod de menta',
-  descricao: '',
-  marca: 'Marca',
-  categoria: 'pod_descartavel',
-  subtipo: 'descartavel-caneta',
-  preco: '49.90',
-  em_estoque: true,
-  puffs: 600,
-  volume_ml: null,
-  nicotina_mg_ml: '50.0',
+const PRODUTO = umProduto()
+
+const ROTAS = {
+  produto: '/produto/:id',
+  entrar: '/entrar',
+  carrinho: '/carrinho',
 }
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/produto/:id', name: 'produto', component: Vazio },
-      { path: '/entrar', name: 'entrar', component: Vazio },
-      { path: '/carrinho', name: 'carrinho', component: Vazio },
-    ],
-  })
-}
-
-async function montar(produto: Produto = PRODUTO) {
-  const router = criarRouter()
-  await router.push(`/produto/${produto.id}`)
-  await router.isReady()
-
-  const componente = mount(AdicionarAoCarrinho, {
-    props: { produto },
-    global: { plugins: [router] },
-  })
+async function montar(produto = PRODUTO) {
+  const { tela: componente, router } = await montarNaRota(
+    AdicionarAoCarrinho,
+    `/produto/${produto.id}`,
+    ROTAS,
+    { props: { produto } },
+  )
   return { componente, router }
-}
-
-function erro400(campos: Record<string, string[]>): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  const resposta = {
-    status: 400,
-    data: campos,
-    statusText: '',
-    headers: {},
-    config,
-  } as AxiosResponse
-  return new AxiosError('falhou', '400', config, {}, resposta)
-}
-
-function carrinhoVazio() {
-  return { itens: [], total: '0.00' }
 }
 
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.mocked(servico.adicionarItem).mockReset()
   vi.mocked(servico.buscarCarrinho).mockReset()
-  vi.mocked(servico.buscarCarrinho).mockResolvedValue(carrinhoVazio())
+  vi.mocked(servico.buscarCarrinho).mockResolvedValue(umCarrinho([]))
 })
 
 describe('AdicionarAoCarrinho', () => {
@@ -90,12 +51,9 @@ describe('AdicionarAoCarrinho', () => {
 
   it('adiciona com a quantidade escolhida quando há sessão', async () => {
     useSessao().token = 'token'
-    vi.mocked(servico.adicionarItem).mockResolvedValue({
-      id: 1,
-      produto: { ...PRODUTO, disponivel: true },
-      quantidade: 3,
-      subtotal: '149.70',
-    })
+    vi.mocked(servico.adicionarItem).mockResolvedValue(
+      umItemDeCarrinho({ quantidade: 3, produto: { id: PRODUTO.id } }),
+    )
     const { componente } = await montar()
 
     await componente.get('input[type="number"]').setValue(3)
@@ -109,7 +67,7 @@ describe('AdicionarAoCarrinho', () => {
   it('mostra a recusa do backend em vez de decidir por conta própria', async () => {
     useSessao().token = 'token'
     vi.mocked(servico.adicionarItem).mockRejectedValue(
-      erro400({ quantidade: ['Quantidade acima do estoque disponível.'] }),
+      falhaComResposta(400, { quantidade: ['Quantidade acima do estoque disponível.'] }),
     )
     const { componente } = await montar()
 

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db.models import Prefetch, QuerySet
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import generics, permissions, serializers, status
-from rest_framework.exceptions import ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -17,6 +15,7 @@ from carrinho.serializers import (
     ItemCarrinhoSerializer,
     QuantidadeItemSerializer,
 )
+from painel.erros import recusa_do_modelo
 
 #: Itens, produtos e subtipos em uma consulta só, para a leitura não cair em
 #: N+1. O subtipo vem junto porque é dele que sai a categoria do produto.
@@ -48,10 +47,8 @@ class ItensCarrinhoView(generics.GenericAPIView):
         entrada.is_valid(raise_exception=True)
         carrinho = Carrinho.objects.do_usuario(request.user)
 
-        try:
+        with recusa_do_modelo():
             item = carrinho.adicionar(**entrada.validated_data)
-        except ErroDeValidacaoDoModelo as erro:
-            raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         return Response(ItemCarrinhoSerializer(item).data, status=status.HTTP_201_CREATED)
 

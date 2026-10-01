@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * Confirmação de uma ação que não dá para desfazer.
+ * Confirmação de uma ação que não dá para desfazer — ou de uma pergunta que
+ * precisa de resposta.
  *
  * Usa o `<dialog>` do navegador em vez de uma sobreposição própria: foco
  * preso dentro da caixa, Escape fechando e leitura de diálogo pelo leitor de
  * tela vêm prontos, e nenhum deles é simples de reescrever direito.
  */
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 
 import BotaoBase from './BotaoBase.vue'
 
@@ -24,6 +25,12 @@ const props = withDefaults(
      */
     desistir?: string
     processando?: boolean
+    /**
+     * Sem resposta não há como seguir: Escape não fecha, e o foco abre na
+     * pergunta, e não num botão, para um Enter distraído não responder por
+     * ninguém. É o caso da pergunta de idade.
+     */
+    exigeResposta?: boolean
   }>(),
   { confirmar: 'Confirmar', desistir: 'Cancelar' },
 )
@@ -31,25 +38,35 @@ const props = withDefaults(
 const emit = defineEmits<{ confirmar: []; cancelar: [] }>()
 
 const caixa = ref<HTMLDialogElement | null>(null)
+const pergunta = ref<HTMLHeadingElement | null>(null)
+const idDoTitulo = useId()
+const idDaDescricao = useId()
 
-watch(
-  () => props.aberto,
-  (aberto) => {
-    const elemento = caixa.value
-    if (!elemento) {
-      return
+async function acompanhar(aberto: boolean): Promise<void> {
+  const elemento = caixa.value
+  if (!elemento) {
+    return
+  }
+  if (aberto && !elemento.open) {
+    elemento.showModal()
+    if (props.exigeResposta) {
+      await nextTick()
+      pergunta.value?.focus()
     }
-    if (aberto && !elemento.open) {
-      elemento.showModal()
-    } else if (!aberto && elemento.open) {
-      elemento.close()
-    }
-  },
-)
+  } else if (!aberto && elemento.open) {
+    elemento.close()
+  }
+}
+
+// Quem já monta aberto — como a pergunta de idade, pendente desde a partida —
+// precisa do `<dialog>`, que só existe depois da montagem: o estado inicial
+// vem daqui, e as mudanças, do observador.
+onMounted(() => void acompanhar(props.aberto))
+watch(() => props.aberto, acompanhar, { flush: 'post' })
 
 /** Escape e clique fora fecham por conta do navegador; o estado precisa saber. */
 function aoFechar(): void {
-  if (props.aberto && !props.processando) {
+  if (props.aberto && !props.processando && !props.exigeResposta) {
     emit('cancelar')
   }
 }
@@ -58,9 +75,17 @@ onBeforeUnmount(() => caixa.value?.close())
 </script>
 
 <template>
-  <dialog ref="caixa" class="dialogo" @close="aoFechar" @cancel.prevent="aoFechar">
-    <h2 class="dialogo__titulo">{{ titulo }}</h2>
-    <p v-if="descricao" class="dialogo__descricao">{{ descricao }}</p>
+  <dialog
+    ref="caixa"
+    class="dialogo"
+    :class="{ 'dialogo--exige-resposta': exigeResposta }"
+    :aria-labelledby="idDoTitulo"
+    :aria-describedby="descricao ? idDaDescricao : undefined"
+    @close="aoFechar"
+    @cancel.prevent="aoFechar"
+  >
+    <h2 :id="idDoTitulo" ref="pergunta" class="dialogo__titulo" tabindex="-1">{{ titulo }}</h2>
+    <p v-if="descricao" :id="idDaDescricao" class="dialogo__descricao">{{ descricao }}</p>
 
     <div class="dialogo__acoes">
       <BotaoBase variante="secundario" :desabilitado="processando" @click="emit('cancelar')">
@@ -90,8 +115,17 @@ onBeforeUnmount(() => caixa.value?.close())
   background: rgb(25 29 34 / 0.45);
 }
 
+/* Mais escuro: aqui a página atrás ainda não foi liberada para quem olha. */
+.dialogo--exige-resposta::backdrop {
+  background: rgb(25 29 34 / 0.8);
+}
+
 .dialogo__titulo {
   font-size: var(--texto-lg);
+}
+
+.dialogo__titulo:focus {
+  outline: none;
 }
 
 .dialogo__descricao {
@@ -102,6 +136,7 @@ onBeforeUnmount(() => caixa.value?.close())
 
 .dialogo__acoes {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--e2);
   margin-top: var(--e5);

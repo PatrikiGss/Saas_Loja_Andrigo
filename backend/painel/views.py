@@ -20,7 +20,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from painel import cookies
 from painel.auditoria import registrar
 from painel.emails import enviar_ativacao_de_conta, enviar_recuperacao_de_senha
-from painel.models import Endereco, Perfil, definir_nivel, invalidar_tokens, nivel_de
+from painel.models import Endereco, Perfil, definir_nivel, nivel_de, trocar_senha
 from painel.permissions import EhAdmin
 from painel.serializers import (
     AlteracaoNivelSerializer,
@@ -202,10 +202,7 @@ class AlterarSenhaView(generics.GenericAPIView):
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
 
-        usuario = request.user
-        usuario.set_password(entrada.validated_data['nova_senha'])
-        usuario.save(update_fields=('password',))
-        invalidar_tokens(usuario)
+        trocar_senha(request.user, entrada.validated_data['nova_senha'])
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -249,10 +246,7 @@ class RedefinirSenhaView(generics.GenericAPIView):
         entrada = self.get_serializer(data=request.data)
         entrada.is_valid(raise_exception=True)
 
-        usuario = entrada.validated_data['usuario']
-        usuario.set_password(entrada.validated_data['nova_senha'])
-        usuario.save(update_fields=('password',))
-        invalidar_tokens(usuario)
+        trocar_senha(entrada.validated_data['usuario'], entrada.validated_data['nova_senha'])
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 

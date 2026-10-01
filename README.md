@@ -147,7 +147,7 @@ minutos para segundos. Com cobertura:
 cd backend && coverage run manage.py test --settings=configs.settings_test && coverage report
 ```
 
-O relatório falha abaixo de 90%. Hoje está em 97%, com 346 testes — boa parte
+O relatório falha abaixo de 90%. Hoje está em 97%, com 347 testes — boa parte
 deles tentativas de ataque: mudar preço no payload, acessar pedido de outra
 conta, virar admin, IDOR, mass assignment.
 
@@ -163,7 +163,7 @@ Com cobertura:
 cd frontend && npm run cobertura
 ```
 
-São 461 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
+São 475 testes, com cobertura em torno de 97% de linhas — o mesmo patamar do
 backend. O relatório falha abaixo dos limites configurados, que ficam um pouco
 abaixo do alcançado para não quebrar o CI a cada linha nova.
 

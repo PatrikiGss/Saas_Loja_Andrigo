@@ -3,18 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ErroDaApi, type TipoDeErro } from '@/services/erros'
 import * as servico from '../services/auth'
-import type { Perfil } from '../types'
+import { umPerfil } from '../../../testes/fixtures'
 import { useSessao } from './sessao'
 
 vi.mock('../services/auth')
 
-const PERFIL: Perfil = {
-  email: 'cliente@example.com',
-  nome: 'Ana',
-  sobrenome: 'Lima',
-  telefone: '',
-  nivel: 'usuario',
-}
+const PERFIL = umPerfil({ email: 'cliente@example.com', nome: 'Ana', sobrenome: 'Lima' })
 
 function erro(tipo: TipoDeErro = 'nao_autenticado'): ErroDaApi {
   return new ErroDaApi(tipo, 'falhou', 401, {})

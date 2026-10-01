@@ -1,19 +1,7 @@
-import { mount } from '@vue/test-utils'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
 
 import DialogoDeConfirmacao from './DialogoDeConfirmacao.vue'
-
-// O jsdom não implementa showModal/close do <dialog>; aqui eles só precisam
-// registrar o estado para o componente reagir.
-beforeAll(() => {
-  HTMLDialogElement.prototype.showModal = function showModal() {
-    this.open = true
-  }
-  HTMLDialogElement.prototype.close = function close() {
-    this.open = false
-    this.dispatchEvent(new Event('close'))
-  }
-})
 
 function montar(props: Partial<InstanceType<typeof DialogoDeConfirmacao>['$props']> = {}) {
   return mount(DialogoDeConfirmacao, {
@@ -81,5 +69,40 @@ describe('DialogoDeConfirmacao', () => {
     const [cancelar] = dialogo.findAll('button')
 
     expect(cancelar.attributes('disabled')).toBeDefined()
+  })
+
+  it('abre quando já monta aberto', async () => {
+    // A pergunta de idade monta com a resposta já pendente.
+    const dialogo = montar({ aberto: true })
+    await flushPromises()
+
+    expect((dialogo.get('dialog').element as HTMLDialogElement).open).toBe(true)
+  })
+
+  it('tem nome e descrição para o leitor de tela', () => {
+    const dialogo = montar({ descricao: 'Não dá para desfazer.' })
+    const caixa = dialogo.get('dialog')
+
+    // Pelo id, e não por seletor: o `useId` do Vue não promete id que sirva
+    // de seletor de CSS.
+    const nome = document.getElementById(caixa.attributes('aria-labelledby')!)
+    const descricao = document.getElementById(caixa.attributes('aria-describedby')!)
+    expect(nome?.textContent).toBe('Limpar o carrinho?')
+    expect(descricao?.textContent).toBe('Não dá para desfazer.')
+    dialogo.unmount()
+  })
+
+  it('exigindo resposta, não fecha com Escape e abre o foco na pergunta', async () => {
+    const dialogo = montar({ aberto: true, exigeResposta: true })
+    await flushPromises()
+
+    const escape = new Event('cancel', { cancelable: true })
+    dialogo.get('dialog').element.dispatchEvent(escape)
+    await flushPromises()
+
+    expect(escape.defaultPrevented).toBe(true)
+    expect(dialogo.emitted('cancelar')).toBeUndefined()
+    expect(document.activeElement).toBe(dialogo.get('h2').element)
+    dialogo.unmount()
   })
 })

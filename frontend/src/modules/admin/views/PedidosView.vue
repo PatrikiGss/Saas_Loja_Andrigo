@@ -11,8 +11,8 @@
  * A recusa com 400 continua tratada: outra pessoa da equipe pode ter movido o
  * pedido entre a listagem e o clique.
  */
-import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 
 import BotaoBase from '@/components/BotaoBase.vue'
 import CarregandoIndicador from '@/components/CarregandoIndicador.vue'
@@ -20,15 +20,14 @@ import EstadoVazio from '@/components/EstadoVazio.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
 import PaginacaoLista from '@/components/PaginacaoLista.vue'
 import TabelaDados, { type Coluna } from '@/components/TabelaDados.vue'
-import { useRequisicao } from '@/composables/useRequisicao'
+import { useListaPaginada } from '@/composables/useListaPaginada'
+import { POR_PAGINA } from '@/services/paginacao'
 import { deErro, type ErroDaApi } from '@/services/erros'
 import SeloDeStatus from '@/modules/pedidos/components/SeloDeStatus.vue'
 import { listarPedidos } from '@/modules/pedidos/services/pedidos'
 import { textoDoStatus, type StatusPedido } from '@/modules/pedidos/types'
 import { dataHora, moeda } from '@/utils/formato'
 import { alterarStatus } from '../services/pedidos'
-
-const POR_PAGINA = 20
 
 const COLUNAS: Coluna[] = [
   { chave: 'pedido', titulo: 'Pedido' },
@@ -38,20 +37,17 @@ const COLUNAS: Coluna[] = [
   { chave: 'mover', titulo: 'Mover para' },
 ]
 
-const rota = useRoute()
 const router = useRouter()
 
-const pagina = computed(() => Number(rota.query.pagina) || 1)
-
-const { dados, carregando, erro, respondeu, executar } = useRequisicao(() =>
-  listarPedidos(pagina.value),
-)
-
-watch(pagina, () => void executar())
-
-const pedidos = computed(() => dados.value?.results ?? [])
-const total = computed(() => dados.value?.count ?? 0)
-const vazio = computed(() => respondeu.value && !erro.value && pedidos.value.length === 0)
+const {
+  pagina,
+  itens: pedidos,
+  total,
+  vazio,
+  carregando,
+  erro,
+  executar,
+} = useListaPaginada(listarPedidos)
 
 const emMudanca = ref<string | null>(null)
 const erroDaAcao = ref<ErroDaApi | null>(null)

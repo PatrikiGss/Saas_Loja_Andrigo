@@ -5,37 +5,31 @@
  * A página vem da URL, como no catálogo: voltar funciona e um link para a
  * página 2 reabre na página 2.
  */
-import { computed, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 
 import CarregandoIndicador from '@/components/CarregandoIndicador.vue'
 import EstadoVazio from '@/components/EstadoVazio.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
 import PaginacaoLista from '@/components/PaginacaoLista.vue'
-import { useRequisicao } from '@/composables/useRequisicao'
+import { useListaPaginada } from '@/composables/useListaPaginada'
+import { POR_PAGINA } from '@/services/paginacao'
 import { useSessao } from '@/modules/auth/stores/sessao'
 import { dataHora, moeda } from '@/utils/formato'
 import SeloDeStatus from '../components/SeloDeStatus.vue'
 import { listarPedidos } from '../services/pedidos'
 
-/** O backend pagina de 20 em 20 e não aceita outro tamanho. */
-const POR_PAGINA = 20
-
-const rota = useRoute()
 const router = useRouter()
 const sessao = useSessao()
 
-const pagina = computed(() => Number(rota.query.pagina) || 1)
-
-const { dados, carregando, erro, respondeu, executar } = useRequisicao(() =>
-  listarPedidos(pagina.value),
-)
-
-watch(pagina, () => void executar())
-
-const pedidos = computed(() => dados.value?.results ?? [])
-const total = computed(() => dados.value?.count ?? 0)
-const semPedidos = computed(() => respondeu.value && !erro.value && pedidos.value.length === 0)
+const {
+  pagina,
+  itens: pedidos,
+  total,
+  vazio: semPedidos,
+  carregando,
+  erro,
+  executar,
+} = useListaPaginada(listarPedidos)
 
 function irParaPagina(destino: number): void {
   void router.push({

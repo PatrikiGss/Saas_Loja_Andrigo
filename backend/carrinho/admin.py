@@ -9,20 +9,17 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from carrinho.models import Carrinho, ItemCarrinho
+from painel.admin_consulta import SomenteConsulta
 
 
-class ItemCarrinhoInline(admin.TabularInline):
+class ItemCarrinhoInline(SomenteConsulta, admin.TabularInline):
     model = ItemCarrinho
     extra = 0
-    can_delete = False
     readonly_fields = ('produto', 'quantidade', 'subtotal', 'adicionado_em')
-
-    def has_add_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False
 
 
 @admin.register(Carrinho)
-class CarrinhoAdmin(admin.ModelAdmin):
+class CarrinhoAdmin(SomenteConsulta, admin.ModelAdmin):
     """Somente consulta, para dar suporte.
 
     O carrinho é do cliente: o admin olha, não mexe. Alterar estoque e preço
@@ -45,12 +42,3 @@ class CarrinhoAdmin(admin.ModelAdmin):
     @admin.display(description='total')
     def total(self, carrinho: Carrinho) -> Decimal:
         return carrinho.total
-
-    def has_add_permission(self, request: HttpRequest) -> bool:
-        return False
-
-    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False
-
-    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
-        return False

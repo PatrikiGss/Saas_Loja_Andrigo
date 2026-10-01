@@ -11,6 +11,7 @@
 import { ref } from 'vue'
 
 import BotaoBase from '@/components/BotaoBase.vue'
+import CampoSelecao from '@/components/CampoSelecao.vue'
 import CampoTexto from '@/components/CampoTexto.vue'
 import { deErro, type CamposComErro, type ErroDaApi } from '@/services/erros'
 import { apenasDigitos } from '@/utils/formato'
@@ -157,28 +158,17 @@ function enviar(): void {
         :desabilitado="enviando"
       />
 
-      <div class="campo">
-        <label class="campo__rotulo" for="uf">
-          Estado
-          <span class="campo__obrigatorio" aria-hidden="true">*</span>
-        </label>
-        <select
-          id="uf"
-          v-model="dados.uf"
-          class="campo__select"
-          :class="{ 'campo__select--invalido': Boolean(campos?.uf) }"
-          :disabled="enviando"
-          :aria-invalid="campos?.uf ? true : undefined"
-          :aria-describedby="campos?.uf ? 'uf-erro' : undefined"
-          required
-        >
-          <option value="" disabled>Escolha</option>
-          <option v-for="unidade in UFS" :key="unidade.sigla" :value="unidade.sigla">
-            {{ unidade.sigla }} — {{ unidade.nome }}
-          </option>
-        </select>
-        <p v-if="campos?.uf" id="uf-erro" class="campo__erro">{{ campos.uf }}</p>
-      </div>
+      <CampoSelecao
+        v-model="dados.uf"
+        rotulo="Estado"
+        obrigatorio
+        :erro="campos?.uf"
+        :desabilitado="enviando"
+      >
+        <option v-for="unidade in UFS" :key="unidade.sigla" :value="unidade.sigla">
+          {{ unidade.sigla }} — {{ unidade.nome }}
+        </option>
+      </CampoSelecao>
     </div>
 
     <CampoTexto
@@ -225,39 +215,6 @@ function enviar(): void {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--e4);
-}
-
-.campo {
-  display: flex;
-  flex-direction: column;
-  gap: var(--e2);
-}
-
-.campo__rotulo {
-  font-size: var(--texto-sm);
-  font-weight: 600;
-}
-
-.campo__obrigatorio {
-  color: var(--alerta);
-}
-
-.campo__select {
-  min-height: 2.75rem;
-  padding: 0 var(--e2);
-  background: var(--papel-alto);
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio-controle);
-  font-size: var(--texto-base);
-}
-
-.campo__select--invalido {
-  border-color: var(--alerta);
-}
-
-.campo__erro {
-  font-size: var(--texto-xs);
-  color: var(--alerta);
 }
 
 .acoes {

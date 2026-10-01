@@ -2,30 +2,13 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
 import FiltrosCatalogo from './FiltrosCatalogo.vue'
-import type { FiltrosDoCatalogo, Subtipo } from '../types'
+import type { FiltrosDoCatalogo } from '../types'
+import { umSubtipo } from '../../../testes/fixtures'
 
-const SUBTIPOS: Subtipo[] = [
-  {
-    slug: 'essencia-nic-salt',
-    nome: 'Nic salt',
-    categoria: 'essencia',
-    categoria_display: 'Essência',
-    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
-  },
-  {
-    slug: 'essencia-freebase',
-    nome: 'Freebase',
-    categoria: 'essencia',
-    categoria_display: 'Essência',
-    especificacoes: ['volume_ml', 'nicotina_mg_ml'],
-  },
-  {
-    slug: 'descartavel-box',
-    nome: 'Box',
-    categoria: 'pod_descartavel',
-    categoria_display: 'Pod descartável',
-    especificacoes: ['puffs', 'nicotina_mg_ml'],
-  },
+const SUBTIPOS = [
+  umSubtipo('essencia-nic-salt', 'essencia', 'Nic salt'),
+  umSubtipo('essencia-freebase', 'essencia', 'Freebase'),
+  umSubtipo('descartavel-box', 'pod_descartavel', 'Box'),
 ]
 
 function montar(filtros: FiltrosDoCatalogo = {}) {

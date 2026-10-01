@@ -1,13 +1,7 @@
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { describe, expect, it, vi } from 'vitest'
 
 import { useFormulario } from './useFormulario'
-
-function respostaDe(status: number, data: unknown): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  const resposta = { status, data, statusText: '', headers: {}, config } as AxiosResponse
-  return new AxiosError('falhou', String(status), config, {}, resposta)
-}
+import { falhaComResposta } from '../testes/falhas'
 
 describe('useFormulario', () => {
   it('marca o envio e devolve o resultado', async () => {
@@ -22,7 +16,7 @@ describe('useFormulario', () => {
 
   it('separa erro por campo do erro geral', async () => {
     const formulario = useFormulario(async () => {
-      throw respostaDe(400, {
+      throw falhaComResposta(400, {
         password: ['Senha comum demais.'],
         detail: 'Confira o cadastro.',
       })
@@ -52,7 +46,7 @@ describe('useFormulario', () => {
   it('libera um novo envio depois que o anterior falha', async () => {
     let deveFalhar = true
     const formulario = useFormulario(async () => {
-      if (deveFalhar) throw respostaDe(400, { email: ['Já cadastrado.'] })
+      if (deveFalhar) throw falhaComResposta(400, { email: ['Já cadastrado.'] })
       return 'ok'
     })
 
@@ -69,7 +63,7 @@ describe('useFormulario', () => {
 
   it('não vaza detalhe de 500 para a tela', async () => {
     const formulario = useFormulario(async () => {
-      throw respostaDe(500, '<html>Traceback...</html>')
+      throw falhaComResposta(500, '<html>Traceback...</html>')
     })
 
     await formulario.submeter()

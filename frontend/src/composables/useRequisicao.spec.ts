@@ -1,9 +1,9 @@
 import { mount } from '@vue/test-utils'
-import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 
 import { useRequisicao, type Requisicao } from './useRequisicao'
+import { falhaComResposta } from '../testes/falhas'
 
 /**
  * Monta o composable dentro de um componente, que é o que dá a ele o
@@ -20,12 +20,6 @@ function montar<T>(buscar: () => Promise<T>, imediato = true): Requisicao<T> {
     }),
   )
   return capturado
-}
-
-function erro401(): AxiosError {
-  const config = { headers: new AxiosHeaders() }
-  const resposta = { status: 401, data: {}, statusText: '', headers: {}, config } as AxiosResponse
-  return new AxiosError('falhou', '401', config, {}, resposta)
 }
 
 describe('useRequisicao', () => {
@@ -53,7 +47,7 @@ describe('useRequisicao', () => {
 
   it('traduz a falha para ErroDaApi', async () => {
     const requisicao = montar(async () => {
-      throw erro401()
+      throw falhaComResposta(401)
     })
 
     await requisicao.executar()
@@ -65,7 +59,7 @@ describe('useRequisicao', () => {
   it('limpa o erro anterior ao repetir', async () => {
     let deveFalhar = true
     const requisicao = montar(async () => {
-      if (deveFalhar) throw erro401()
+      if (deveFalhar) throw falhaComResposta(401)
       return 'ok'
     }, false)
 
@@ -121,7 +115,7 @@ describe('vazio', () => {
 
   it('é falso quando a busca falhou', async () => {
     const requisicao = montar<string[]>(async () => {
-      throw erro401()
+      throw falhaComResposta(401)
     }, false)
 
     await requisicao.executar()

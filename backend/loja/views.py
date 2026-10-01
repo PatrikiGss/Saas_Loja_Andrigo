@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from django.core.exceptions import ValidationError as ErroDeValidacaoDoModelo
 from django.db.models import ProtectedError, QuerySet
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -25,6 +24,7 @@ from loja.serializers import (
     SubtipoSerializer,
 )
 from painel.auditoria import registrar
+from painel.erros import recusa_do_modelo
 from painel.permissions import LeituraPublicaEscritaAdmin, e_admin
 
 #: Por onde o catálogo pode ser ordenado. O filtro e o esquema leem daqui.
@@ -144,10 +144,8 @@ class ProdutoViewSet(viewsets.ModelViewSet):
         entrada = AjusteEstoqueSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
 
-        try:
+        with recusa_do_modelo():
             estoque = produto.ajustar_estoque(entrada.validated_data['delta'])
-        except ErroDeValidacaoDoModelo as erro:
-            raise ValidationError(serializers.as_serializer_error(erro)) from erro
 
         registrar(
             request.user,

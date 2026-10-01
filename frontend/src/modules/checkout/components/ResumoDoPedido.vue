@@ -10,10 +10,14 @@ import { computed } from 'vue'
 
 import BotaoBase from '@/components/BotaoBase.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
+import EntregaDoPedido from '@/modules/pedidos/components/EntregaDoPedido.vue'
+import ItensDoPedido from '@/modules/pedidos/components/ItensDoPedido.vue'
+import ValoresDoPedido from '@/modules/pedidos/components/ValoresDoPedido.vue'
+import type { ItemPedido } from '@/modules/pedidos/types'
 import type { ErroDaApi } from '@/services/erros'
 import type { ItemCarrinho } from '@/modules/carrinho/types'
 import type { Endereco } from '@/modules/enderecos/types'
-import { cep as formatarCep, moeda, somarDinheiro } from '@/utils/formato'
+import { somarDinheiro } from '@/utils/formato'
 import type { OpcaoFrete } from '../types'
 
 const props = defineProps<{
@@ -28,6 +32,20 @@ const props = defineProps<{
 const emit = defineEmits<{ fechar: []; repetir: [] }>()
 
 const totalEstimado = computed(() => somarDinheiro(props.subtotal, props.frete.preco))
+
+/**
+ * Os itens do carrinho no formato da linha de pedido, que é o que eles vão
+ * virar: o resumo desenha com as mesmas peças da confirmação.
+ */
+const linhas = computed<ItemPedido[]>(() =>
+  props.itens.map((item) => ({
+    sku: item.produto.sku,
+    nome: item.produto.nome,
+    preco_unitario: item.produto.preco,
+    quantidade: item.quantidade,
+    subtotal: item.subtotal,
+  })),
+)
 
 /** Recusas do fechamento que valem mais que a mensagem genérica. */
 const recusa = computed(
@@ -46,46 +64,23 @@ const recusa = computed(
     <div class="blocos">
       <div class="bloco">
         <h3 class="bloco__nome">Itens</h3>
-        <ul class="itens">
-          <li v-for="item in itens" :key="item.id" class="item">
-            <span class="item__nome">
-              <span class="numerico">{{ item.quantidade }}</span> × {{ item.produto.nome }}
-            </span>
-            <span class="item__valor numerico">{{ moeda(item.subtotal) }}</span>
-          </li>
-        </ul>
+        <ItensDoPedido :itens="linhas" />
       </div>
 
       <div class="bloco">
         <h3 class="bloco__nome">Entrega</h3>
-        <p class="bloco__texto">
-          {{ endereco.logradouro }}, {{ endereco.numero }}<br />
-          <template v-if="endereco.complemento">{{ endereco.complemento }}<br /></template>
-          {{ endereco.bairro }} — {{ endereco.cidade }}/{{ endereco.uf }}<br />
-          <span class="numerico">CEP {{ formatarCep(endereco.cep) }}</span>
-        </p>
-        <p class="bloco__texto">
-          {{ frete.nome }}, em até
-          <span class="numerico">{{ frete.prazo_em_dias }}</span>
-          {{ frete.prazo_em_dias === 1 ? 'dia útil' : 'dias úteis' }}
-        </p>
+        <EntregaDoPedido
+          :endereco="endereco"
+          :servico="frete.nome"
+          :prazo-em-dias="frete.prazo_em_dias"
+        />
       </div>
     </div>
 
-    <dl class="valores">
-      <div class="valores__linha">
-        <dt>Subtotal</dt>
-        <dd class="numerico">{{ moeda(subtotal) }}</dd>
-      </div>
-      <div class="valores__linha">
-        <dt>Frete</dt>
-        <dd class="numerico">{{ moeda(frete.preco) }}</dd>
-      </div>
-      <div class="valores__linha valores__linha--total">
-        <dt>Total</dt>
-        <dd class="numerico">{{ moeda(totalEstimado) }}</dd>
-      </div>
-    </dl>
+    <ValoresDoPedido
+      class="resumo__valores"
+      :valores="{ subtotal, frete: frete.preco, total: totalEstimado }"
+    />
 
     <MensagemDeErro v-if="erro" :erro="erro" :detalhe="recusa" sem-repetir class="recusa" />
 
@@ -117,56 +112,8 @@ const recusa = computed(
   border-bottom: 1px solid var(--linha);
 }
 
-.bloco__texto {
-  margin-top: var(--e3);
-  font-size: var(--texto-sm);
-  color: var(--tinta-media);
-  line-height: 1.5;
-}
-
-.itens {
-  list-style: none;
-  padding: 0;
-  margin-top: var(--e2);
-}
-
-.item {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--e4);
-  padding: var(--e2) 0;
-  font-size: var(--texto-sm);
-}
-
-.item__valor {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.valores {
-  max-width: 22rem;
+.resumo__valores {
   margin: var(--e6) 0 var(--e5);
-  border-top: 1px solid var(--linha);
-}
-
-.valores__linha {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--e4);
-  padding: var(--e2) 0;
-  font-size: var(--texto-sm);
-}
-
-.valores__linha dd {
-  margin: 0;
-  font-weight: 600;
-}
-
-.valores__linha--total {
-  padding-top: var(--e3);
-  border-top: 1px solid var(--linha);
-  font-size: var(--texto-md);
-  font-weight: 700;
 }
 
 .recusa {

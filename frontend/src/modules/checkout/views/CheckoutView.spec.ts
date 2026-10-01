@@ -1,100 +1,39 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h } from 'vue'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import * as servicoCarrinho from '@/modules/carrinho/services/carrinho'
-import type { Carrinho } from '@/modules/carrinho/types'
 import * as servicoEnderecos from '@/modules/enderecos/services/enderecos'
-import type { Endereco } from '@/modules/enderecos/types'
 import type { Pedido } from '@/modules/pedidos/types'
 import ResumoDoPedido from '../components/ResumoDoPedido.vue'
 import CheckoutView from './CheckoutView.vue'
 import * as servicoCheckout from '../services/checkout'
+import { falhaComResposta } from '@/testes/falhas'
+import { umCarrinho, umEndereco, umItemDeCarrinho, umPedido } from '@/testes/fixtures'
+import { montarNaRota } from '../../../testes/roteador'
 
 vi.mock('@/modules/carrinho/services/carrinho')
 vi.mock('@/modules/enderecos/services/enderecos')
 vi.mock('../services/checkout')
 
-const ENDERECO: Endereco = {
-  id: 1,
-  apelido: 'Casa',
-  cep: '01001000',
-  logradouro: 'Praça da Sé',
-  numero: '100',
-  complemento: '',
-  bairro: 'Sé',
-  cidade: 'São Paulo',
-  uf: 'SP',
-}
+const ENDERECO = umEndereco()
 
-const PEDIDO: Pedido = {
-  numero: 'PED-20260919-ABCDEF',
-  status: 'aguardando_pagamento',
-  status_pagamento: 'pendente',
-  itens: [{ sku: 'SKU-1', nome: 'Pod', preco_unitario: '49.90', quantidade: 1, subtotal: '49.90' }],
-  entrega: { ...ENDERECO },
-  servico_frete: 'economico',
-  prazo_frete_em_dias: 4,
-  subtotal: '49.90',
-  frete: '19.90',
-  total: '69.80',
-  criado_em: '2026-09-19T00:09:00Z',
-  pago_em: null,
-  cliente: 'ana@example.com',
-  proximos_status: ['pago', 'cancelado'],
-  pode_cancelar: true,
-}
+const PEDIDO = umPedido()
 
-const Vazio = defineComponent({ setup: () => () => h('div') })
-
-function criarRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/checkout', name: 'checkout', component: Vazio },
-      { path: '/catalogo', name: 'catalogo', component: Vazio },
-      { path: '/carrinho', name: 'carrinho', component: Vazio },
-      { path: '/pedidos/:numero', name: 'pedido', component: Vazio },
-    ],
-  })
+const ROTAS = {
+  checkout: '/checkout',
+  catalogo: '/catalogo',
+  carrinho: '/carrinho',
+  pedido: '/pedidos/:numero',
 }
 
 async function montar() {
-  const router = criarRouter()
-  await router.push('/checkout')
-  await router.isReady()
-
-  const tela = mount(CheckoutView, { global: { plugins: [router] } })
-  await flushPromises()
-  return tela
-}
-
-function carrinhoCom(quantidade = 1): Carrinho {
-  return {
-    itens: [
-      {
-        id: 1,
-        produto: {
-          id: 'p1',
-          sku: 'SKU-1',
-          nome: 'Pod',
-          preco: '49.90',
-          categoria: 'pod_descartavel',
-          disponivel: true,
-        },
-        quantidade,
-        subtotal: '49.90',
-      },
-    ],
-    total: '49.90',
-  }
+  return (await montarNaRota(CheckoutView, '/checkout', ROTAS)).tela
 }
 
 beforeEach(() => {
   setActivePinia(createPinia())
-  vi.mocked(servicoCarrinho.buscarCarrinho).mockReset().mockResolvedValue(carrinhoCom())
+  vi.mocked(servicoCarrinho.buscarCarrinho).mockReset().mockResolvedValue(umCarrinho())
   vi.mocked(servicoEnderecos.listarEnderecos).mockReset().mockResolvedValue([ENDERECO])
   vi.mocked(servicoCheckout.cotarFrete)
     .mockReset()
@@ -179,7 +118,7 @@ describe('CheckoutView', () => {
   })
 
   it('barra o fechamento quando o carrinho está vazio', async () => {
-    vi.mocked(servicoCarrinho.buscarCarrinho).mockResolvedValue({ itens: [], total: '0.00' })
+    vi.mocked(servicoCarrinho.buscarCarrinho).mockResolvedValue(umCarrinho([]))
 
     const tela = await montar()
 
@@ -187,16 +126,8 @@ describe('CheckoutView', () => {
   })
 
   it('mostra a recusa do fechamento e relê o carrinho', async () => {
-    const { AxiosError, AxiosHeaders } = await import('axios')
-    const config = { headers: new AxiosHeaders() }
     vi.mocked(servicoCheckout.fecharPedido).mockRejectedValue(
-      new AxiosError('falhou', '400', config, {}, {
-        status: 400,
-        data: { pedido: ['Há pedidos demais aguardando pagamento nesta conta.'] },
-        statusText: '',
-        headers: {},
-        config,
-      } as never),
+      falhaComResposta(400, { pedido: ['Há pedidos demais aguardando pagamento nesta conta.'] }),
     )
 
     const tela = await montar()
@@ -238,24 +169,9 @@ describe('CheckoutView', () => {
   })
 
   it('barra o fechamento quando há produto indisponível', async () => {
-    vi.mocked(servicoCarrinho.buscarCarrinho).mockResolvedValue({
-      itens: [
-        {
-          id: 1,
-          produto: {
-            id: 'p1',
-            sku: 'SKU-1',
-            nome: 'Pod',
-            preco: '49.90',
-            categoria: 'pod_descartavel',
-            disponivel: false,
-          },
-          quantidade: 1,
-          subtotal: '49.90',
-        },
-      ],
-      total: '49.90',
-    })
+    vi.mocked(servicoCarrinho.buscarCarrinho).mockResolvedValue(
+      umCarrinho([umItemDeCarrinho({ produto: { disponivel: false } })]),
+    )
 
     const tela = await montar()
 

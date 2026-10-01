@@ -14,13 +14,11 @@ import EstadoVazio from '@/components/EstadoVazio.vue'
 import MensagemDeErro from '@/components/MensagemDeErro.vue'
 import PaginacaoLista from '@/components/PaginacaoLista.vue'
 import { useRequisicao } from '@/composables/useRequisicao'
+import { POR_PAGINA, paginaDaRota } from '@/services/paginacao'
 import CardProduto from '../components/CardProduto.vue'
 import FiltrosCatalogo from '../components/FiltrosCatalogo.vue'
 import { listarProdutos, listarSubtipos } from '../services/catalogo'
 import { ORDENACOES, type FiltrosDoCatalogo, type Ordenacao } from '../types'
-
-/** O backend pagina de 20 em 20 e não aceita outro tamanho. */
-const POR_PAGINA = 20
 
 const rota = useRoute()
 const router = useRouter()
@@ -38,7 +36,7 @@ const filtros = computed<FiltrosDoCatalogo>(() => {
     // Ordenação que não existe na API é descartada: ela vem da barra de
     // endereço e o backend recusaria o valor.
     ordem: ORDENACOES.some((opcao) => opcao.valor === ordem) ? (ordem as Ordenacao) : undefined,
-    pagina: Number(rota.query.pagina) || 1,
+    pagina: paginaDaRota(rota.query.pagina),
   }
 })
 
